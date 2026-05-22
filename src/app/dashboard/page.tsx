@@ -22,29 +22,58 @@ export default async function DashboardPage() {
     prisma.gmailToken.findUnique({ where: { userId } }),
   ]);
 
-  const pendingCounts = await prisma.emailStatus.groupBy({
-    by: ["projectId"],
-    where: { userId, status: "pending" },
+  // Get all email statuses grouped by project + status
+  const statusCounts = await prisma.emailStatus.groupBy({
+    by: ["projectId", "status"],
+    where: { userId },
     _count: { _all: true },
   });
 
-  const pendingMap: Record<string, number> = {};
-  for (const p of pendingCounts) {
-    pendingMap[p.projectId] = p._count._all;
+  type StatusMap = Record<string, { pending: number; done: number; dismissed: number; total: number }>;
+  const statusMap: StatusMap = {};
+  for (const row of statusCounts) {
+    if (!statusMap[row.projectId]) {
+      statusMap[row.projectId] = { pending: 0, done: 0, dismissed: 0, total: 0 };
+    }
+    const s = row.status as "pending" | "done" | "dismissed";
+    statusMap[row.projectId][s] = row._count._all;
+    statusMap[row.projectId].total += row._count._all;
   }
 
-  const totalPending = Object.values(pendingMap).reduce((a, b) => a + b, 0);
+  const totalPending = Object.values(statusMap).reduce((a, b) => a + b.pending, 0);
+  const totalEmails = Object.values(statusMap).reduce((a, b) => a + b.total, 0);
+  const totalDone = Object.values(statusMap).reduce((a, b) => a + b.done, 0);
 
   return (
     <div className="space-y-6">
       {!gmailToken && <GmailConnectBanner />}
+
+      {/* Global KPI strip */}
+      {totalEmails > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-slate-800">{totalEmails}</p>
+            <p className="text-xs text-slate-400 mt-1">Total emails</p>
+          </div>
+          <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-orange-600">{totalPending}</p>
+            <p className="text-xs text-orange-500 mt-1">Pending across projects</p>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-emerald-600">{totalDone}</p>
+            <p className="text-xs text-emerald-500 mt-1">Done</p>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Projects</h1>
           {totalPending > 0 && (
-            <p className="text-sm text-orange-500 mt-0.5">{totalPending} email{totalPending !== 1 ? "s" : ""} awaiting response</p>
+            <p className="text-sm text-orange-500 mt-0.5">
+              {totalPending} email{totalPending !== 1 ? "s" : ""} awaiting response
+            </p>
           )}
         </div>
         {gmailToken && (
@@ -73,7 +102,9 @@ export default async function DashboardPage() {
             <ProjectCard
               key={project.id}
               project={project}
-              pendingCount={pendingMap[project.id] ?? 0}
+              pendingCount={statusMap[project.id]?.pending ?? 0}
+              doneCount={statusMap[project.id]?.done ?? 0}
+              totalCount={statusMap[project.id]?.total ?? 0}
             />
           ))}
         </div>

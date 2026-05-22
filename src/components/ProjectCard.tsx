@@ -13,9 +13,13 @@ type Project = {
 export default function ProjectCard({
   project,
   pendingCount,
+  doneCount,
+  totalCount,
 }: {
   project: Project;
   pendingCount: number;
+  doneCount?: number;
+  totalCount?: number;
 }) {
   const router = useRouter();
 
@@ -60,6 +64,24 @@ export default function ProjectCard({
           </div>
         </div>
 
+        {/* KPI mini-row */}
+        {(totalCount ?? 0) > 0 && (
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex-1 text-center bg-slate-50 rounded-lg py-1.5">
+              <p className="text-base font-bold text-slate-700">{totalCount}</p>
+              <p className="text-xs text-slate-400">total</p>
+            </div>
+            <div className="flex-1 text-center bg-orange-50 rounded-lg py-1.5">
+              <p className="text-base font-bold text-orange-600">{pendingCount}</p>
+              <p className="text-xs text-orange-400">pending</p>
+            </div>
+            <div className="flex-1 text-center bg-emerald-50 rounded-lg py-1.5">
+              <p className="text-base font-bold text-emerald-600">{doneCount ?? 0}</p>
+              <p className="text-xs text-emerald-400">done</p>
+            </div>
+          </div>
+        )}
+
         {/* Divider */}
         <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
           {pendingCount > 0 ? (
@@ -67,7 +89,7 @@ export default function ProjectCard({
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>
               {pendingCount} pending
             </span>
-          ) : project._count.emailStatuses > 0 ? (
+          ) : (totalCount ?? project._count.emailStatuses) > 0 ? (
             <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-medium px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               All clear

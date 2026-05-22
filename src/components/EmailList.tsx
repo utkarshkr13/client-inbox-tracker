@@ -58,52 +58,43 @@ function EmailRow({
 
   return (
     <div
-      className={`flex items-start gap-4 p-4 border-b border-gray-100 last:border-0 transition-opacity ${
+      className={`flex items-start gap-4 p-4 border-b border-slate-100 last:border-0 transition-opacity ${
         isDismissed ? "opacity-40" : ""
       }`}
     >
-      {/* Status indicator */}
-      <div className="mt-0.5 flex-shrink-0">
-        {isPending && (
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-400 mt-1" />
-        )}
-        {isDone && (
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mt-1" />
-        )}
-        {isDismissed && (
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 mt-1" />
-        )}
+      <div className="mt-1 flex-shrink-0">
+        {isPending && <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />}
+        {isDone && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />}
+        {isDismissed && <span className="inline-block w-2 h-2 rounded-full bg-slate-300" />}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="font-medium text-gray-900 text-sm truncate">
+          <span className="font-medium text-slate-800 text-sm truncate">
             {email.fromName || email.fromEmail}
           </span>
           {email.fromName && (
-            <span className="text-xs text-gray-400 truncate">{email.fromEmail}</span>
+            <span className="text-xs text-slate-400 truncate">{email.fromEmail}</span>
           )}
         </div>
-        <p className="text-sm text-gray-700 mt-0.5 font-medium truncate">
+        <p className="text-sm text-slate-700 mt-0.5 font-medium truncate">
           {email.subject || "(no subject)"}
         </p>
         {email.snippet && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{email.snippet}</p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate">{email.snippet}</p>
         )}
-        <p className="text-xs text-gray-400 mt-1">{formatDate(email.receivedAt)}</p>
+        <p className="text-xs text-slate-400 mt-1">{formatDate(email.receivedAt)}</p>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 flex-shrink-0" aria-disabled={loading}>
+      <div className="flex gap-1.5 flex-shrink-0" aria-disabled={loading}>
         <button
           onClick={() => setStatus("done")}
           disabled={loading || isDone}
-          title="Mark done"
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition border ${
+          title="Mark done — only affects this app, not Gmail"
+          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition border ${
             isDone
-              ? "bg-green-100 border-green-300 text-green-600"
-              : "border-gray-200 hover:bg-green-50 hover:border-green-300 hover:text-green-600 text-gray-400"
+              ? "bg-emerald-100 border-emerald-300 text-emerald-600"
+              : "border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 text-slate-300"
           }`}
         >
           ✓
@@ -111,11 +102,11 @@ function EmailRow({
         <button
           onClick={() => setStatus(isPending ? "dismissed" : "pending")}
           disabled={loading}
-          title={isPending ? "Dismiss" : "Mark pending"}
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition border ${
+          title={isPending ? "Dismiss — only affects this app, not Gmail" : "Mark pending"}
+          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition border ${
             isDismissed
-              ? "bg-gray-100 border-gray-300 text-gray-500"
-              : "border-gray-200 hover:bg-red-50 hover:border-red-300 hover:text-red-500 text-gray-400"
+              ? "bg-slate-100 border-slate-300 text-slate-500"
+              : "border-slate-200 hover:bg-red-50 hover:border-red-300 hover:text-red-500 text-slate-300"
           }`}
         >
           ✕
@@ -136,6 +127,7 @@ export default function EmailList({
 }) {
   const [statuses, setStatuses] = useState<EmailStatus[]>(emailStatuses);
   const [filter, setFilter] = useState<"all" | "pending" | "done" | "dismissed">("all");
+  const [fromDate, setFromDate] = useState("2026-05-10");
 
   function handleStatusChange(gmailMessageId: string, newStatus: string) {
     setStatuses((prev) =>
@@ -145,62 +137,148 @@ export default function EmailList({
     );
   }
 
-  const filtered =
-    filter === "all" ? statuses : statuses.filter((e) => e.status === filter);
+  // Date filter
+  const dateFiltered = statuses.filter((e) => {
+    if (!fromDate) return true;
+    if (!e.receivedAt) return false;
+    return new Date(e.receivedAt) >= new Date(fromDate);
+  });
+
+  // Status filter
+  const filtered = filter === "all" ? dateFiltered : dateFiltered.filter((e) => e.status === filter);
 
   // Group by sender
   const grouped: Record<string, EmailStatus[]> = {};
   for (const e of filtered) {
-    const key = e.fromEmail ?? "unknown";
+    const key = (e.fromEmail ?? "unknown").toLowerCase();
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(e);
   }
 
-  const pendingCount = statuses.filter((e) => e.status === "pending").length;
+  // KPIs from date-filtered set
+  const pendingCount = dateFiltered.filter((e) => e.status === "pending").length;
+  const doneCount = dateFiltered.filter((e) => e.status === "done").length;
+  const dismissedCount = dateFiltered.filter((e) => e.status === "dismissed").length;
+  const totalCount = dateFiltered.length;
+
+  // Per-client stats
+  const clientStats = clientEmails.map((ce) => {
+    const ceEmails = dateFiltered.filter(
+      (e) => (e.fromEmail ?? "").toLowerCase() === ce.email.toLowerCase()
+    );
+    const latestEmail = ceEmails.sort(
+      (a, b) => new Date(b.receivedAt ?? 0).getTime() - new Date(a.receivedAt ?? 0).getTime()
+    )[0];
+    return {
+      ...ce,
+      total: ceEmails.length,
+      latest: latestEmail?.receivedAt ?? null,
+    };
+  });
 
   return (
-    <div className="space-y-4">
-      {/* Filter bar */}
-      <div className="flex items-center gap-2">
-        {(["all", "pending", "done", "dismissed"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-sm px-3 py-1.5 rounded-full transition capitalize ${
-              filter === f
-                ? "bg-black text-white"
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {f}
-            {f === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5">
-                {pendingCount}
+    <div className="space-y-5">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-slate-800">{totalCount}</p>
+          <p className="text-xs text-slate-400 mt-1">Total</p>
+        </div>
+        <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-orange-600">{pendingCount}</p>
+          <p className="text-xs text-orange-500 mt-1">Pending</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-600">{doneCount}</p>
+          <p className="text-xs text-emerald-500 mt-1">Done</p>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-slate-400">{dismissedCount}</p>
+          <p className="text-xs text-slate-400 mt-1">Dismissed</p>
+        </div>
+      </div>
+
+      {/* Per-client stats */}
+      <div className="grid grid-cols-2 gap-3">
+        {clientStats.map((cs) => (
+          <div key={cs.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <span className="text-indigo-600 font-bold text-xs">
+                {(cs.label || cs.email).slice(0, 2).toUpperCase()}
               </span>
-            )}
-          </button>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-800 truncate">{cs.label || cs.email}</p>
+              <p className="text-xs text-slate-400 truncate">{cs.email}</p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs font-medium text-indigo-600">{cs.total} email{cs.total !== 1 ? "s" : ""}</span>
+                {cs.latest && (
+                  <span className="text-xs text-slate-400">Last: {formatDate(cs.latest)}</span>
+                )}
+              </div>
+            </div>
+          </div>
         ))}
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-slate-500 font-medium">From</label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="text-xs bg-white text-slate-800 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          {(["all", "pending", "done", "dismissed"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-xs px-3 py-1.5 rounded-full transition capitalize ${
+                filter === f
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {f}
+              {f === "pending" && pendingCount > 0 && (
+                <span className="ml-1.5 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Email groups */}
       {Object.keys(grouped).length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-sm">
-          {filter === "all" ? "No emails synced yet. Click Sync Emails." : `No ${filter} emails.`}
+        <div className="text-center py-12 text-slate-400 text-sm">
+          {filter === "all"
+            ? fromDate
+              ? `No emails from ${new Date(fromDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} onwards. Try an earlier date or sync.`
+              : "No emails synced yet. Click Sync Emails."
+            : `No ${filter} emails.`}
         </div>
       ) : (
         Object.entries(grouped).map(([senderEmail, emails]) => {
-          const clientEmail = clientEmails.find((ce) => ce.email === senderEmail);
+          const clientEmail = clientEmails.find(
+            (ce) => ce.email.toLowerCase() === senderEmail
+          );
           const label = clientEmail?.label || senderEmail;
           return (
-            <div key={senderEmail} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <div key={senderEmail} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-gray-700 text-sm">{label}</span>
+                  <span className="font-semibold text-slate-700 text-sm">{label}</span>
                   {clientEmail?.label && (
-                    <span className="ml-2 text-xs text-gray-400">{senderEmail}</span>
+                    <span className="ml-2 text-xs text-slate-400">{senderEmail}</span>
                   )}
                 </div>
-                <span className="text-xs text-gray-400">{emails.length} email{emails.length !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-slate-400">{emails.length} email{emails.length !== 1 ? "s" : ""}</span>
               </div>
               <div>
                 {emails.map((email) => (
