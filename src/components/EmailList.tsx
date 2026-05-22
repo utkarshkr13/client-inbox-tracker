@@ -68,23 +68,38 @@ function EmailRow({
         {isDismissed && <span className="inline-block w-2 h-2 rounded-full bg-slate-300" />}
       </div>
 
-      <div className="flex-1 min-w-0">
+      {/* Tapping opens the email in Gmail (read-only, no Gmail changes) */}
+      <a
+        href={`https://mail.google.com/mail/u/0/#all/${email.gmailMessageId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 min-w-0 group/link"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-baseline gap-2">
-          <span className="font-medium text-slate-800 text-sm truncate">
+          <span className="font-medium text-slate-800 text-sm truncate group-hover/link:text-indigo-600 transition">
             {email.fromName || email.fromEmail}
           </span>
           {email.fromName && (
             <span className="text-xs text-slate-400 truncate">{email.fromEmail}</span>
           )}
         </div>
-        <p className="text-sm text-slate-700 mt-0.5 font-medium truncate">
+        <p className="text-sm text-slate-700 mt-0.5 font-medium truncate group-hover/link:text-indigo-700 transition">
           {email.subject || "(no subject)"}
         </p>
         {email.snippet && (
           <p className="text-xs text-slate-400 mt-0.5 truncate">{email.snippet}</p>
         )}
-        <p className="text-xs text-slate-400 mt-1">{formatDate(email.receivedAt)}</p>
-      </div>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs text-slate-400">{formatDate(email.receivedAt)}</p>
+          <span className="text-xs text-indigo-400 opacity-0 group-hover/link:opacity-100 transition flex items-center gap-0.5">
+            Open in Gmail
+            <svg className="w-3 h-3 inline ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </span>
+        </div>
+      </a>
 
       <div className="flex gap-1.5 flex-shrink-0" aria-disabled={loading}>
         <button
