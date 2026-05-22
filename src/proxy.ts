@@ -6,7 +6,7 @@ import { sessionOptions } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/", "/login", "/api/auth/login", "/api/gmail/callback"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isPublic = PUBLIC_PATHS.some(

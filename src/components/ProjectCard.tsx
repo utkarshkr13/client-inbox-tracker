@@ -26,45 +26,61 @@ export default function ProjectCard({
     router.refresh();
   }
 
+  const initials = project.name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <Link href={`/dashboard/projects/${project.id}`}>
-      <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition cursor-pointer group relative">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer group relative">
+        {/* Delete button */}
         <button
           onClick={deleteProject}
-          className="absolute top-4 right-4 text-slate-300 hover:text-red-400 transition text-lg leading-none opacity-0 group-hover:opacity-100"
-          title="Delete"
+          className="absolute top-3.5 right-3.5 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 transition opacity-0 group-hover:opacity-100 text-base leading-none"
+          title="Delete project"
         >
           ×
         </button>
 
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-50 transition">
-            <svg className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
+        {/* Avatar + name */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-200 transition">
+            <span className="text-indigo-600 font-bold text-sm">{initials}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-semibold text-slate-800 truncate pr-4">{project.name}</h2>
+          <div className="min-w-0">
+            <h2 className="font-semibold text-slate-800 text-sm truncate pr-4 group-hover:text-indigo-700 transition">
+              {project.name}
+            </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {project.clientEmails.length} email{project.clientEmails.length !== 1 ? "s" : ""}
+              {project.clientEmails.length} client email{project.clientEmails.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        {/* Divider */}
+        <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
           {pendingCount > 0 ? (
-            <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100 text-xs font-medium px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-600 border border-orange-100 text-xs font-medium px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>
               {pendingCount} pending
             </span>
           ) : project._count.emailStatuses > 0 ? (
-            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-medium px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-medium px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               All clear
             </span>
           ) : (
-            <span className="text-xs text-slate-400">No emails synced</span>
+            <span className="text-xs text-slate-400 italic">No emails synced</span>
           )}
+
+          <span className="text-xs text-slate-300 group-hover:text-indigo-400 transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
         </div>
       </div>
     </Link>

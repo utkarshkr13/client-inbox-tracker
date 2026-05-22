@@ -33,15 +33,15 @@ export default function NewProjectForm() {
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="New project name..."
-        className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+        placeholder="New project name…"
+        className="flex-1 bg-white text-slate-900 placeholder-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
       />
       <button
         type="submit"
         disabled={loading || !name.trim()}
-        className="bg-black text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
+        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40 transition shadow-sm"
       >
-        {loading ? "Creating..." : "Create Project"}
+        {loading ? "Creating…" : "Create Project"}
       </button>
     </form>
   );
