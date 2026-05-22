@@ -19,45 +19,54 @@ export default function ProjectCard({
 }) {
   const router = useRouter();
 
-  async function deleteProject() {
-    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+  async function deleteProject(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!confirm(`Delete "${project.name}"?`)) return;
     await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
     router.refresh();
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition group">
-      <div className="flex items-start justify-between">
-        <Link href={`/dashboard/projects/${project.id}`} className="flex-1">
-          <h2 className="font-semibold text-gray-900 group-hover:text-black">{project.name}</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {project.clientEmails.length} email{project.clientEmails.length !== 1 ? "s" : ""}
-          </p>
-        </Link>
+    <Link href={`/dashboard/projects/${project.id}`}>
+      <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition cursor-pointer group relative">
         <button
           onClick={deleteProject}
-          className="text-gray-300 hover:text-red-500 transition ml-2 text-lg leading-none"
-          title="Delete project"
+          className="absolute top-4 right-4 text-slate-300 hover:text-red-400 transition text-lg leading-none opacity-0 group-hover:opacity-100"
+          title="Delete"
         >
           ×
         </button>
+
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-50 transition">
+            <svg className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-slate-800 truncate pr-4">{project.name}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {project.clientEmails.length} email{project.clientEmails.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          {pendingCount > 0 ? (
+            <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100 text-xs font-medium px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>
+              {pendingCount} pending
+            </span>
+          ) : project._count.emailStatuses > 0 ? (
+            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-medium px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+              All clear
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">No emails synced</span>
+          )}
+        </div>
       </div>
-
-      {pendingCount > 0 && (
-        <div className="mt-3">
-          <span className="inline-flex items-center bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-            {pendingCount} pending
-          </span>
-        </div>
-      )}
-
-      {pendingCount === 0 && project._count.emailStatuses > 0 && (
-        <div className="mt-3">
-          <span className="inline-flex items-center bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-            All clear
-          </span>
-        </div>
-      )}
-    </div>
+    </Link>
   );
 }
