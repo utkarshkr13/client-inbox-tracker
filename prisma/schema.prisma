@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientEmails  ClientEmail[]
+  emailStatuses EmailStatus[]
+
+  @@index([userId])
+}
+
+model ClientEmail {
+  id        String   @id @default(cuid())
+  projectId String
+  email     String
+  label     String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, email])
+  @@index([projectId])
+}
+
+model EmailStatus {
+  id             String    @id @default(cuid())
+  gmailMessageId String
+  projectId      String
+  userId         String
+  status         String    @default("pending")
+  subject        String?
+  fromEmail      String?
+  fromName       String?
+  snippet        String?
+  receivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([gmailMessageId, projectId])
+  @@index([projectId, userId])
+}
+
+model GmailToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  accessToken  String
+  refreshToken String?
+  expiryDate   BigInt?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
