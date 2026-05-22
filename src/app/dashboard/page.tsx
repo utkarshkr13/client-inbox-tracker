@@ -22,10 +22,13 @@ export default async function DashboardPage() {
     prisma.gmailToken.findUnique({ where: { userId } }),
   ]);
 
-  // Get all email statuses grouped by project + status
+  // Filter to match the default May 10 date filter shown on project pages
+  const DEFAULT_FROM = new Date("2026-05-10T00:00:00.000Z");
+
+  // Get all email statuses grouped by project + status (from May 10 onwards)
   const statusCounts = await prisma.emailStatus.groupBy({
     by: ["projectId", "status"],
-    where: { userId },
+    where: { userId, receivedAt: { gte: DEFAULT_FROM } },
     _count: { _all: true },
   });
 
@@ -48,20 +51,23 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       {!gmailToken && <GmailConnectBanner />}
 
-      {/* Global KPI strip */}
+      {/* Global KPI strip — counts from May 10, 2026 to match project page default */}
       {totalEmails > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-slate-800">{totalEmails}</p>
             <p className="text-xs text-slate-400 mt-1">Total emails</p>
+            <p className="text-xs text-slate-300 mt-0.5">since 10 May</p>
           </div>
           <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-orange-600">{totalPending}</p>
             <p className="text-xs text-orange-500 mt-1">Pending across projects</p>
+            <p className="text-xs text-orange-300 mt-0.5">since 10 May</p>
           </div>
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-emerald-600">{totalDone}</p>
             <p className="text-xs text-emerald-500 mt-1">Done</p>
+            <p className="text-xs text-emerald-300 mt-0.5">since 10 May</p>
           </div>
         </div>
       )}
