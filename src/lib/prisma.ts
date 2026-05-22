@@ -1,14 +1,11 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 function createPrismaClient() {
-  // Prisma v7: pass datasource URL via adapter or env
-  if (process.env.DATABASE_URL?.includes("neon.tech")) {
-    const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
-    return new PrismaClient({ adapter } as any);
-  }
-  // Fallback for non-Neon Postgres (local / other providers)
-  return new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } } as any);
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
 }
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
