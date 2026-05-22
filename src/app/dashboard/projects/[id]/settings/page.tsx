@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -6,8 +6,9 @@ import ClientEmailManager from "@/components/ClientEmailManager";
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const session = await getSession();
+  if (!session.isLoggedIn) redirect("/login");
+  const userId = session.userId!;
 
   const project = await prisma.project.findUnique({
     where: { id, userId },

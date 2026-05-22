@@ -10,7 +10,6 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.4.0",
     "@google-cloud/local-auth": "^3.0.1",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
@@ -18,6 +17,7 @@
     "@types/pg": "^8.20.0",
     "clsx": "^2.1.1",
     "googleapis": "^172.0.0",
+    "iron-session": "^8.0.4",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
     "pg": "^8.21.0",

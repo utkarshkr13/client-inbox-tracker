@@ -1,11 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getOAuthClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 export async function GET(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getSession();
+  if (!session.isLoggedIn) return NextResponse.redirect(new URL("/login", req.url));
+  const userId = session.userId!;
 
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");

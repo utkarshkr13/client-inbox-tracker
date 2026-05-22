@@ -1,5 +1,5 @@
-import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +8,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Link href="/dashboard" className="text-lg font-semibold text-gray-900">
           Client Inbox Tracker
         </Link>
-        <UserButton />
+        <LogoutButton />
       </header>
       <main className="flex-1 p-6 max-w-5xl mx-auto w-full">{children}</main>
     </div>

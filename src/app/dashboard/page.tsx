@@ -1,14 +1,14 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import ProjectCard from "@/components/ProjectCard";
 import NewProjectForm from "@/components/NewProjectForm";
 import GmailConnectBanner from "@/components/GmailConnectBanner";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const session = await getSession();
+  if (!session.isLoggedIn) redirect("/login");
+  const userId = session.userId!;
 
   const [projects, gmailToken] = await Promise.all([
     prisma.project.findMany({
