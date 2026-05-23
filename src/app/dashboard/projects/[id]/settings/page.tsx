@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import ClientEmailManager from "@/components/ClientEmailManager";
+import ProjectSettingsClient from "@/components/ProjectSettingsClient";
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,26 +11,32 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  const project = await prisma.project.findUnique({
-    where: { id, userId },
-    include: { clientEmails: true },
-  });
+  const [project, slaConfig, clientProfiles] = await Promise.all([
+    prisma.project.findUnique({ where: { id, userId }, include: { clientEmails: true } }),
+    prisma.slaConfig.findUnique({ where: { projectId: id } }),
+    prisma.clientProfile.findMany({ where: { projectId: id } }),
+  ]);
 
   if (!project) notFound();
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <Link href={`/dashboard/projects/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href={`/dashboard/projects/${id}`} className="text-sm text-slate-400 hover:text-slate-600">
           ← Back to {project.name}
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">Manage Client Emails</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Emails added here will be fetched from Gmail when you sync.
-        </p>
+        <h1 className="text-2xl font-bold text-slate-900 mt-1">Project Settings</h1>
+        <p className="text-sm text-slate-400 mt-0.5">{project.name}</p>
       </div>
 
       <ClientEmailManager projectId={id} clientEmails={project.clientEmails} />
+
+      <ProjectSettingsClient
+        projectId={id}
+        initialSlaHours={slaConfig?.thresholdHours ?? 24}
+        clientEmails={project.clientEmails}
+        initialProfiles={clientProfiles}
+      />
     </div>
   );
 }

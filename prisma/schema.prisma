@@ -14,8 +14,11 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clientEmails  ClientEmail[]
-  emailStatuses EmailStatus[]
+  clientEmails   ClientEmail[]
+  emailStatuses  EmailStatus[]
+  slaConfig      SlaConfig?
+  clientProfiles ClientProfile[]
+  templates      ResponseTemplate[]
 
   @@index([userId])
 }
@@ -34,23 +37,143 @@ model ClientEmail {
 }
 
 model EmailStatus {
-  id             String    @id @default(cuid())
-  gmailMessageId String
-  projectId      String
-  userId         String
-  status         String    @default("pending")
-  subject        String?
-  fromEmail      String?
-  fromName       String?
-  snippet        String?
-  receivedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  gmailMessageId  String
+  threadId        String?
+  projectId       String
+  userId          String
+  status          String    @default("pending")
+  routingTier     String    @default("ba")  // "ba" or "l2"
+  aiCategory      String?                   // Billing, Bug, Feature, Meeting, Approval, Update, Other
+  subject         String?
+  fromEmail       String?
+  fromName        String?
+  snippet         String?
+  hasAttachments  Boolean   @default(false)
+  receivedAt      DateTime?
+  followUpAt      DateTime?
+  escalationNote  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  notes      Note[]
+  emailTags  EmailTag[]
+  auditLogs  AuditLog[]
 
   @@unique([gmailMessageId, projectId])
   @@index([projectId, userId])
+  @@index([threadId])
+}
+
+model Note {
+  id            String   @id @default(cuid())
+  emailStatusId String
+  userId        String
+  content       String
+  createdAt     DateTime @default(now())
+
+  emailStatus EmailStatus @relation(fields: [emailStatusId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  emailTags EmailTag[]
+
+  @@unique([userId, name])
+}
+
+model EmailTag {
+  emailStatusId String
+  tagId         String
+
+  emailStatus EmailStatus @relation(fields: [emailStatusId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([emailStatusId, tagId])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  emailStatusId String
+  userId        String
+  action        String   // status_change, note_added, tag_added, escalated, follow_up_set, routed
+  fromValue     String?
+  toValue       String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  emailStatus EmailStatus @relation(fields: [emailStatusId], references: [id], onDelete: Cascade)
+}
+
+model SlaConfig {
+  id             String   @id @default(cuid())
+  projectId      String   @unique
+  thresholdHours Int      @default(24)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ResponseTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String?
+  name      String
+  category  String   @default("General")
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model ClientProfile {
+  id              String    @id @default(cuid())
+  projectId       String
+  email           String
+  contactName     String?
+  role            String?
+  company         String?
+  contractEndDate DateTime?
+  riskLevel       String    @default("green")  // green, amber, red
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, email])
+}
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  config      String   // JSON: { slaHours, defaultTags, emailPatterns }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model WebhookConfig {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  webhookUrl String?
+  events     String   @default("pending")  // comma-separated: pending,escalated,sla_breach
+  enabled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model GmailToken {

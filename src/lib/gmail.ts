@@ -14,9 +14,7 @@ export function getAuthUrl() {
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: [
-      "https://www.googleapis.com/auth/gmail.readonly",
-    ],
+    scope: ["https://www.googleapis.com/auth/gmail.readonly"],
   });
 }
 
@@ -31,7 +29,6 @@ export async function getAuthedClient(userId: string) {
     expiry_date: token.expiryDate ? Number(token.expiryDate) : undefined,
   });
 
-  // Auto-refresh if expired
   client.on("tokens", async (tokens) => {
     await prisma.gmailToken.update({
       where: { userId },
@@ -44,6 +41,31 @@ export async function getAuthedClient(userId: string) {
   });
 
   return client;
+}
+
+/** Keyword-based AI category detection */
+export function detectCategory(subject: string, snippet: string): string {
+  const text = `${subject} ${snippet}`.toLowerCase();
+  if (/invoice|billing|payment|charge|refund|receipt|cost|price|quote|subscription/.test(text)) return "Billing";
+  if (/bug|error|issue|broken|crash|fail|not working|problem|fix|defect/.test(text)) return "Bug";
+  if (/feature|request|enhancement|improvement|suggest|add|new functionality|roadmap/.test(text)) return "Feature";
+  if (/meeting|call|schedule|calendar|invite|discuss|sync|chat|catch up/.test(text)) return "Meeting";
+  if (/approve|approval|sign off|sign-off|review|confirm|authorize|permission/.test(text)) return "Approval";
+  if (/update|status|progress|report|milestone|release|deploy|shipped|done/.test(text)) return "Update";
+  return "General";
+}
+
+/** Detect if a Gmail message has non-text attachments */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hasRealAttachments(payload: any): boolean {
+  if (!payload) return false;
+  if (payload.filename && payload.filename.length > 0) return true;
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (hasRealAttachments(part)) return true;
+    }
+  }
+  return false;
 }
 
 export async function fetchEmailsFromSender(
@@ -86,13 +108,20 @@ export async function fetchEmailsFromSender(
         ? from.split("<")[1].replace(">", "").trim()
         : from;
 
+      const snippet = detail.data.snippet ?? "";
+      const aiCategory = detectCategory(subject, snippet);
+      const hasAttachments = hasRealAttachments(detail.data.payload);
+
       return {
         gmailMessageId: msg.id!,
+        threadId: detail.data.threadId ?? null,
         subject,
         fromEmail: fromAddress,
         fromName,
-        snippet: detail.data.snippet ?? "",
+        snippet,
         receivedAt: date ? new Date(date) : null,
+        aiCategory,
+        hasAttachments,
       };
     })
   );

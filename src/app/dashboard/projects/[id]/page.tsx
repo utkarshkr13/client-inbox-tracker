@@ -11,48 +11,38 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  const project = await prisma.project.findUnique({
-    where: { id, userId },
-    include: { clientEmails: true },
-  });
+  const [project, slaConfig, gmailToken] = await Promise.all([
+    prisma.project.findUnique({ where: { id, userId }, include: { clientEmails: true } }),
+    prisma.slaConfig.findUnique({ where: { projectId: id } }),
+    prisma.gmailToken.findUnique({ where: { userId } }),
+  ]);
 
   if (!project) notFound();
 
   const emailStatuses = await prisma.emailStatus.findMany({
     where: { projectId: id, userId },
     orderBy: { receivedAt: "desc" },
+    include: { notes: true, emailTags: { include: { tag: true } } },
   });
-
-  const gmailToken = await prisma.gmailToken.findUnique({ where: { userId } });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1">
-            ← Projects
-          </Link>
+          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600">← Projects</Link>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">{project.name}</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             {project.clientEmails.length} client email{project.clientEmails.length !== 1 ? "s" : ""}
-            {emailStatuses.length > 0 && (
-              <span className="ml-2 text-slate-300">· {emailStatuses.length} total synced</span>
-            )}
+            {emailStatuses.length > 0 && <span className="ml-2 text-slate-300">· {emailStatuses.length} total synced</span>}
           </p>
         </div>
-        <div className="flex gap-3 flex-shrink-0">
-          <Link
-            href={`/dashboard/projects/${id}/settings`}
-            className="text-sm border border-slate-200 text-slate-600 px-4 py-2 rounded-xl hover:bg-slate-50 transition"
-          >
-            Manage Emails
+        <div className="flex gap-2 flex-shrink-0 flex-wrap">
+          <Link href={`/dashboard/projects/${id}/settings`}
+            className="text-sm border border-slate-200 text-slate-600 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
+            Settings
           </Link>
           {gmailToken && (
-            <SyncButton
-              projectId={id}
-              clientEmails={project.clientEmails.map((e: { email: string }) => e.email)}
-            />
+            <SyncButton projectId={id} clientEmails={project.clientEmails.map((e: { email: string }) => e.email)} />
           )}
         </div>
       </div>
@@ -60,9 +50,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       {!gmailToken && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           Gmail not connected.{" "}
-          <Link href="/api/gmail/connect" className="underline font-medium">
-            Connect Gmail
-          </Link>{" "}
+          <Link href="/api/gmail/connect" className="underline font-medium">Connect Gmail</Link>{" "}
           to fetch emails.
         </div>
       )}
@@ -70,15 +58,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       {project.clientEmails.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           No client emails added.{" "}
-          <Link href={`/dashboard/projects/${id}/settings`} className="underline text-slate-600">
-            Add some →
-          </Link>
+          <Link href={`/dashboard/projects/${id}/settings`} className="underline text-slate-600">Add some →</Link>
         </div>
       ) : (
         <EmailList
           emailStatuses={emailStatuses}
           clientEmails={project.clientEmails}
           projectId={id}
+          slaThresholdHours={slaConfig?.thresholdHours ?? 24}
         />
       )}
     </div>
