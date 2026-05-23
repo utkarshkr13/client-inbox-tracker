@@ -11,11 +11,14 @@ export default async function DigestPage() {
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
 
-  const [projects, newEmails, pending, escalated, followUpsDue] = await Promise.all([
+  // L2 SLA breach: L2-routed emails still pending that have breached their project SLA
+  // We load all pending L2 emails + their project's SLA config, then filter in JS
+  const [projects, slaConfigs, newEmails, pending, escalated, followUpsDue, l2PendingAll] = await Promise.all([
     prisma.project.findMany({
       where: { userId },
-      include: { _count: { select: { emailStatuses: true } } },
+      include: { _count: { select: { emailStatuses: true } }, slaConfig: true },
     }),
+    prisma.slaConfig.findMany({ where: { project: { userId } } }),
     prisma.emailStatus.count({ where: { userId, createdAt: { gte: weekAgo } } }),
     prisma.emailStatus.findMany({
       where: { userId, status: "pending" },
@@ -35,7 +38,22 @@ export default async function DigestPage() {
       take: 10,
       include: { project: { select: { name: true } } },
     }),
+    // All pending L2-routed emails to check against SLA
+    prisma.emailStatus.findMany({
+      where: { userId, status: "pending", routingTier: "l2" },
+      orderBy: { receivedAt: "asc" },
+      include: { project: { select: { name: true, id: true }, include: { slaConfig: true } } },
+    }),
   ]);
+
+  // Filter l2PendingAll to only those that have breached SLA
+  const now = Date.now();
+  const l2SlaBreach = l2PendingAll.filter((e) => {
+    if (!e.receivedAt) return false;
+    const slaHours = (e.project as { slaConfig?: { thresholdHours: number } | null }).slaConfig?.thresholdHours ?? 24;
+    const hoursAgo = (now - new Date(e.receivedAt).getTime()) / (1000 * 60 * 60);
+    return hoursAgo >= slaHours;
+  });
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -53,11 +71,12 @@ export default async function DigestPage() {
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: "New this week", value: newEmails, cls: "bg-white border-slate-200 text-slate-800" },
           { label: "Still pending", value: pending.length, cls: "bg-orange-50 border-orange-100 text-orange-600" },
           { label: "Escalated", value: escalated.length, cls: "bg-red-50 border-red-100 text-red-600" },
+          { label: "L2 SLA breach", value: l2SlaBreach.length, cls: l2SlaBreach.length > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-white border-slate-200 text-slate-400" },
           { label: "Follow-ups due", value: followUpsDue.length, cls: "bg-amber-50 border-amber-100 text-amber-600" },
         ].map(({ label, value, cls }) => (
           <div key={label} className={`border rounded-xl p-4 text-center ${cls}`}>
@@ -66,6 +85,37 @@ export default async function DigestPage() {
           </div>
         ))}
       </div>
+
+      {/* L2 SLA breach — shown above escalations, these need BA action NOW */}
+      {l2SlaBreach.length > 0 && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-red-800 mb-1">🔴 L2 SLA Breach — BA Action Required</h2>
+          <p className="text-xs text-red-600 mb-3">
+            These emails were routed to L2 but L2 has not responded within the SLA window. BA must step in.
+          </p>
+          <div className="space-y-2">
+            {l2SlaBreach.map((e) => {
+              const slaHours = (e.project as { slaConfig?: { thresholdHours: number } | null }).slaConfig?.thresholdHours ?? 24;
+              const hoursOverdue = Math.round((now - new Date(e.receivedAt!).getTime()) / (1000 * 60 * 60)) - slaHours;
+              return (
+                <Link key={e.id} href={`/dashboard/projects/${e.projectId}`}>
+                  <div className="bg-white border border-red-200 rounded-lg p-3 hover:border-red-400 transition cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-medium">L2</span>
+                        <span className="text-xs text-red-600 font-medium">{e.project.name}</span>
+                      </div>
+                      <span className="text-xs text-red-600 font-semibold">{hoursOverdue}h overdue</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-800 mt-0.5 truncate">{e.subject || "(no subject)"}</p>
+                    <p className="text-xs text-slate-500 truncate">{e.fromName || e.fromEmail}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Escalated emails — most urgent */}
       {escalated.length > 0 && (

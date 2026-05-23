@@ -11,13 +11,17 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  const [project, slaConfig, clientProfiles] = await Promise.all([
+  const [project, slaConfig, clientProfiles, gmailToken] = await Promise.all([
     prisma.project.findUnique({ where: { id, userId }, include: { clientEmails: true } }),
     prisma.slaConfig.findUnique({ where: { projectId: id } }),
     prisma.clientProfile.findMany({ where: { projectId: id } }),
+    prisma.gmailToken.findUnique({ where: { userId } }),
   ]);
 
   if (!project) notFound();
+
+  // BA email: prefer what's stored on the project, fall back to connected Gmail email
+  const detectedBaEmail = gmailToken?.gmailEmail ?? null;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -36,6 +40,9 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
         initialSlaHours={slaConfig?.thresholdHours ?? 24}
         clientEmails={project.clientEmails}
         initialProfiles={clientProfiles}
+        initialL2Email={project.l2Email ?? ""}
+        initialBaEmail={project.baEmail ?? detectedBaEmail ?? ""}
+        detectedBaEmail={detectedBaEmail}
       />
     </div>
   );

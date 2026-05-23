@@ -19,6 +19,8 @@ type EmailStatus = {
   fromName: string | null;
   snippet: string | null;
   hasAttachments?: boolean;
+  toEmails?: string | null;
+  ccEmails?: string | null;
   receivedAt: Date | string | null;
   followUpAt?: Date | string | null;
   escalationNote?: string | null;
@@ -56,14 +58,40 @@ const CATEGORY_COLORS: Record<string, string> = {
   General: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
-function SlaIndicator({ receivedAt, thresholdHours }: { receivedAt: Date | string | null; thresholdHours: number }) {
+function SlaIndicator({ receivedAt, thresholdHours, routingTier }: {
+  receivedAt: Date | string | null;
+  thresholdHours: number;
+  routingTier?: string;
+}) {
   if (!receivedAt) return null;
   const hoursAgo = (Date.now() - new Date(receivedAt).getTime()) / (1000 * 60 * 60);
   if (hoursAgo < thresholdHours * 0.75) return null;
   const breached = hoursAgo >= thresholdHours;
+  const isL2 = routingTier === "l2";
   return (
     <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${breached ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
-      {breached ? "⚠ SLA breached" : "⏱ SLA due soon"}
+      {breached
+        ? (isL2 ? "🔴 L2 SLA breach — BA to step in" : "⚠ SLA breached")
+        : (isL2 ? "⏱ L2 SLA due soon" : "⏱ SLA due soon")}
+    </span>
+  );
+}
+
+// Show a compact To/CC context pill so the BA can instantly see who was addressed
+function ToCcPill({ toEmails, ccEmails }: { toEmails?: string | null; ccEmails?: string | null }) {
+  if (!toEmails && !ccEmails) return null;
+  const toList = (toEmails ?? "").split(",").filter(Boolean);
+  const ccList = (ccEmails ?? "").split(",").filter(Boolean);
+  if (toList.length === 0 && ccList.length === 0) return null;
+  // Show only the first address from each field, truncated
+  const toLabel = toList[0] ? toList[0].split("@")[0] : null;
+  const ccLabel = ccList[0] ? ccList[0].split("@")[0] : null;
+  return (
+    <span className="text-xs text-slate-400 border border-slate-100 rounded px-1.5 py-0.5 bg-slate-50" title={`To: ${toList.join(", ")}${ccList.length ? `  CC: ${ccList.join(", ")}` : ""}`}>
+      {toLabel && <>To: <span className="font-medium text-slate-500">{toLabel}</span></>}
+      {toList.length > 1 && ` +${toList.length - 1}`}
+      {ccLabel && <>{toLabel ? "  " : ""}CC: <span className="font-medium text-slate-500">{ccLabel}</span></>}
+      {ccList.length > 1 && ` +${ccList.length - 1}`}
     </span>
   );
 }
@@ -235,7 +263,8 @@ function EmailRow({
           )}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <p className="text-xs text-slate-400">{formatDate(email.receivedAt)}</p>
-            {isPending && <SlaIndicator receivedAt={email.receivedAt} thresholdHours={slaThresholdHours} />}
+            <ToCcPill toEmails={email.toEmails} ccEmails={email.ccEmails} />
+            {isPending && <SlaIndicator receivedAt={email.receivedAt} thresholdHours={slaThresholdHours} routingTier={email.routingTier} />}
           </div>
         </div>
         <svg className={`w-3.5 h-3.5 text-slate-300 flex-shrink-0 mt-1.5 cursor-pointer transition-transform ${expanded ? "rotate-180" : ""}`}

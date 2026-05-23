@@ -11,6 +11,8 @@ model Project {
   id        String   @id @default(cuid())
   userId    String
   name      String
+  l2Email   String?  // Email address of the L2 support agent for this project
+  baEmail   String?  // BA's Gmail address (auto-filled on connect, can override)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -50,6 +52,8 @@ model EmailStatus {
   fromName        String?
   snippet         String?
   hasAttachments  Boolean   @default(false)
+  toEmails        String?   // comma-separated To recipients from Gmail headers
+  ccEmails        String?   // comma-separated CC recipients from Gmail headers
   receivedAt      DateTime?
   followUpAt      DateTime?
   escalationNote  String?
@@ -182,6 +186,7 @@ model GmailToken {
   accessToken  String
   refreshToken String?
   expiryDate   BigInt?
+  gmailEmail   String?  // BA's actual Gmail address, fetched on connect
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

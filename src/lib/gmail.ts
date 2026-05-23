@@ -93,13 +93,15 @@ export async function fetchEmailsFromSender(
         userId: "me",
         id: msg.id!,
         format: "metadata",
-        metadataHeaders: ["Subject", "From", "Date"],
+        metadataHeaders: ["Subject", "From", "Date", "To", "Cc"],
       });
 
       const headers = detail.data.payload?.headers ?? [];
       const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
       const from = headers.find((h) => h.name === "From")?.value ?? fromEmail;
       const date = headers.find((h) => h.name === "Date")?.value;
+      const toRaw = headers.find((h) => h.name === "To")?.value ?? "";
+      const ccRaw = headers.find((h) => h.name === "Cc")?.value ?? "";
 
       const fromName = from.includes("<")
         ? from.split("<")[0].trim().replace(/"/g, "")
@@ -112,6 +114,13 @@ export async function fetchEmailsFromSender(
       const aiCategory = detectCategory(subject, snippet);
       const hasAttachments = hasRealAttachments(detail.data.payload);
 
+      // Normalise To/Cc to comma-separated lowercase email lists
+      const extractEmails = (raw: string) =>
+        raw.split(",").map((p) => {
+          const m = p.match(/<([^>]+)>/);
+          return (m ? m[1] : p).trim().toLowerCase();
+        }).filter(Boolean).join(",");
+
       return {
         gmailMessageId: msg.id!,
         threadId: detail.data.threadId ?? null,
@@ -122,6 +131,8 @@ export async function fetchEmailsFromSender(
         receivedAt: date ? new Date(date) : null,
         aiCategory,
         hasAttachments,
+        toEmails: extractEmails(toRaw),
+        ccEmails: extractEmails(ccRaw),
       };
     })
   );

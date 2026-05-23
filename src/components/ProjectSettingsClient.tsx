@@ -25,16 +25,30 @@ export default function ProjectSettingsClient({
   initialSlaHours,
   clientEmails,
   initialProfiles,
+  initialL2Email,
+  initialBaEmail,
+  detectedBaEmail,
 }: {
   projectId: string;
   initialSlaHours: number;
   clientEmails: ClientEmail[];
   initialProfiles: ClientProfile[];
+  initialL2Email: string;
+  initialBaEmail: string;
+  detectedBaEmail: string | null;
 }) {
+  // SLA
   const [slaHours, setSlaHours] = useState(initialSlaHours);
   const [slaSaved, setSlaSaved] = useState(false);
   const [slaSaving, setSlaSaving] = useState(false);
 
+  // L2 / BA email routing
+  const [l2Email, setL2Email] = useState(initialL2Email);
+  const [baEmail, setBaEmail] = useState(initialBaEmail);
+  const [routingSaved, setRoutingSaved] = useState(false);
+  const [routingSaving, setRoutingSaving] = useState(false);
+
+  // CRM profiles
   const [profiles, setProfiles] = useState<ClientProfile[]>(initialProfiles);
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<ClientProfile>>({});
@@ -50,6 +64,18 @@ export default function ProjectSettingsClient({
     setSlaSaving(false);
     setSlaSaved(true);
     setTimeout(() => setSlaSaved(false), 2000);
+  }
+
+  async function saveRouting() {
+    setRoutingSaving(true);
+    await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ l2Email: l2Email.trim(), baEmail: baEmail.trim() }),
+    });
+    setRoutingSaving(false);
+    setRoutingSaved(true);
+    setTimeout(() => setRoutingSaved(false), 2000);
   }
 
   function startEditProfile(email: string) {
@@ -79,12 +105,105 @@ export default function ProjectSettingsClient({
 
   return (
     <>
-      {/* SLA Configuration */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-        <h2 className="text-base font-semibold text-slate-800">SLA Configuration</h2>
-        <p className="text-sm text-slate-500">
-          Pending emails older than this threshold will show SLA warnings in the email list.
+      {/* ── L2 / BA Email Routing ───────────────────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800">L2 & BA Routing</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            When an email is synced, the app automatically detects who is in the <strong>To</strong> and <strong>CC</strong> fields
+            and routes accordingly. Set the email addresses below so the routing engine knows who is who.
+          </p>
+        </div>
+
+        {/* Routing diagram */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 text-slate-600">
+          <p className="font-semibold text-slate-700 mb-1">How routing works:</p>
+          <div className="flex items-start gap-2">
+            <span className="text-indigo-500 font-bold mt-0.5">▸</span>
+            <span><strong>Scenario 1 — Email TO the BA</strong> (L2 in CC or not present): BA is responsible first. L2 is looped in but BA leads.</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-orange-500 font-bold mt-0.5">▸</span>
+            <span><strong>Scenario 2 — Email TO the L2</strong> (BA in CC): L2 must respond first within the SLA window. If L2 doesn't act, it is flagged as an <span className="text-red-600 font-semibold">L2 SLA breach</span> and the BA is alerted.</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-slate-400 font-bold mt-0.5">▸</span>
+            <span><strong>Scenario 3 — Email TO both BA and L2</strong>: BA is treated as primary since they were explicitly addressed.</span>
+          </div>
+          <div className="mt-2 pt-2 border-t border-slate-200 text-slate-400">
+            If neither is in the To/CC headers, routing falls back to the email category (Bug / General → L2, everything else → BA).
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          {/* BA Email */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Your email (BA)
+              <span className="ml-1 text-xs font-normal text-slate-400">— the email you check Gmail on</span>
+            </label>
+            <input
+              type="email"
+              value={baEmail}
+              onChange={(e) => setBaEmail(e.target.value)}
+              placeholder="you@company.com"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            {detectedBaEmail && detectedBaEmail !== baEmail && (
+              <button onClick={() => setBaEmail(detectedBaEmail)} className="text-xs text-indigo-500 hover:underline mt-1">
+                Use connected Gmail: {detectedBaEmail}
+              </button>
+            )}
+            {detectedBaEmail && detectedBaEmail === baEmail && (
+              <p className="text-xs text-emerald-600 mt-1">✓ Matches your connected Gmail</p>
+            )}
+          </div>
+
+          {/* L2 Email */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              L2 email address
+              <span className="ml-1 text-xs font-normal text-slate-400">— your support agent for this project</span>
+            </label>
+            <input
+              type="email"
+              value={l2Email}
+              onChange={(e) => setL2Email(e.target.value)}
+              placeholder="support@company.com"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            {!l2Email && (
+              <p className="text-xs text-amber-600 mt-1">⚠ No L2 set — all emails will route to BA by default</p>
+            )}
+            {l2Email && (
+              <p className="text-xs text-emerald-600 mt-1">✓ Smart routing active for this project</p>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={saveRouting}
+          disabled={routingSaving}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${routingSaved ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"} disabled:opacity-50`}
+        >
+          {routingSaved ? "✓ Routing saved" : routingSaving ? "Saving…" : "Save Routing Config"}
+        </button>
+
+        <p className="text-xs text-slate-400">
+          Routing is re-evaluated on every sync, so you can update these emails at any time and re-sync to apply.
         </p>
+      </div>
+
+      {/* ── SLA Configuration ──────────────────────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800">SLA Configuration</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Pending emails older than this threshold show SLA warnings. For L2-routed emails, a breach means
+            the L2 has not acted — this surfaces as an <span className="text-red-600 font-medium">L2 SLA breach</span> badge
+            so the BA can step in.
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-slate-600">Response deadline:</label>
           <input
@@ -104,20 +223,19 @@ export default function ProjectSettingsClient({
             {slaSaved ? "✓ Saved" : slaSaving ? "Saving…" : "Save SLA"}
           </button>
         </div>
-        <p className="text-xs text-slate-400">Orange warning at 75% · Red breach at 100%</p>
+        <p className="text-xs text-slate-400">Orange warning at 75% of threshold · Red breach at 100%</p>
       </div>
 
-      {/* Client CRM Profiles */}
+      {/* ── Client CRM Profiles ─────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-slate-800">Client Profiles (CRM)</h2>
-        <p className="text-sm text-slate-500">Add contact details, risk levels, and notes for each client email address.</p>
+        <p className="text-sm text-slate-500">Contact details, risk level and notes for each client email address.</p>
 
         {clientEmails.map((ce) => {
           const profile = profiles.find((p) => p.email === ce.email);
           const isEditing = editingEmail === ce.email;
           return (
             <div key={ce.id} className="border border-slate-200 rounded-xl overflow-hidden">
-              {/* Profile header */}
               <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{ce.label || ce.email}</p>
@@ -138,7 +256,6 @@ export default function ProjectSettingsClient({
                 </div>
               </div>
 
-              {/* Profile summary */}
               {!isEditing && profile && (
                 <div className="px-4 py-3 grid grid-cols-2 gap-2 text-xs">
                   {profile.contactName && <div><span className="text-slate-400">Contact:</span> <span className="text-slate-700">{profile.contactName}</span></div>}
@@ -149,7 +266,6 @@ export default function ProjectSettingsClient({
                 </div>
               )}
 
-              {/* Edit form */}
               {isEditing && (
                 <div className="px-4 py-3 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
