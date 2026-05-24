@@ -466,7 +466,11 @@ export default function EmailList({
   const [filter, setFilter] = useState<"all" | "pending" | "done" | "dismissed" | "escalated">("all");
   const [routingFilter, setRoutingFilter] = useState<"all" | "ba" | "l2">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [fromDate, setFromDate] = useState("2026-05-10");
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
   const [viewMode, setViewMode] = useState<"sender" | "thread" | "category">("sender");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<Tag[]>([]);

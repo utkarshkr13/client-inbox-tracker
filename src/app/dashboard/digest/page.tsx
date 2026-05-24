@@ -13,12 +13,11 @@ export default async function DigestPage() {
 
   // L2 SLA breach: L2-routed emails still pending that have breached their project SLA
   // We load all pending L2 emails + their project's SLA config, then filter in JS
-  const [projects, slaConfigs, newEmails, pending, escalated, followUpsDue, l2PendingAll] = await Promise.all([
+  const [projects, newEmails, pending, escalated, followUpsDue, l2PendingAll] = await Promise.all([
     prisma.project.findMany({
       where: { userId },
       include: { _count: { select: { emailStatuses: true } }, slaConfig: true },
     }),
-    prisma.slaConfig.findMany({ where: { project: { userId } } }),
     prisma.emailStatus.count({ where: { userId, createdAt: { gte: weekAgo } } }),
     prisma.emailStatus.findMany({
       where: { userId, status: "pending" },
@@ -42,7 +41,7 @@ export default async function DigestPage() {
     prisma.emailStatus.findMany({
       where: { userId, status: "pending", routingTier: "l2" },
       orderBy: { receivedAt: "asc" },
-      include: { project: { select: { name: true, id: true }, include: { slaConfig: true } } },
+      include: { project: { include: { slaConfig: true } } },
     }),
   ]);
 
