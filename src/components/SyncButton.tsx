@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw, Check, AlertCircle } from "lucide-react";
+import { Button } from "./ui/button";
 
 export default function SyncButton({
   projectId,
@@ -11,7 +13,7 @@ export default function SyncButton({
   clientEmails: string[];
 }) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const router = useRouter();
 
   async function sync() {
@@ -22,11 +24,13 @@ export default function SyncButton({
       const res = await fetch(`/api/projects/${projectId}/emails`);
       const data = await res.json();
       if (res.ok) {
-        setResult(`Synced ${data.synced} email${data.synced !== 1 ? "s" : ""}`);
+        setResult({ ok: true, message: `Synced ${data.synced} email${data.synced !== 1 ? "s" : ""}` });
         router.refresh();
       } else {
-        setResult(data.error ?? "Sync failed");
+        setResult({ ok: false, message: data.error ?? "Sync failed" });
       }
+    } catch {
+      setResult({ ok: false, message: "Network error" });
     } finally {
       setLoading(false);
       setTimeout(() => setResult(null), 3000);
@@ -35,14 +39,25 @@ export default function SyncButton({
 
   return (
     <div className="flex items-center gap-2">
-      {result && <span className="text-sm text-gray-500">{result}</span>}
-      <button
+      {result && (
+        <span
+          className={`text-xs font-medium inline-flex items-center gap-1 ${result.ok ? "text-success" : "text-danger"}`}
+          role="status"
+        >
+          {result.ok ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+          {result.message}
+        </span>
+      )}
+      <Button
+        variant="primary"
+        size="md"
+        loading={loading}
+        disabled={clientEmails.length === 0}
         onClick={sync}
-        disabled={loading || clientEmails.length === 0}
-        className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
       >
-        {loading ? "Syncing..." : "Sync Emails"}
-      </button>
+        {!loading && <RefreshCw className="w-3.5 h-3.5" />}
+        {loading ? "Syncing…" : "Sync emails"}
+      </Button>
     </div>
   );
 }

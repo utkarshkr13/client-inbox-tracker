@@ -1,21 +1,158 @@
 @import "tailwindcss";
 
+/* ────────────────────────────────────────────────────────────
+   Design tokens. Light by default; .dark on <html> flips them.
+   HSL values keep alpha/opacity manipulation cheap downstream.
+   ──────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --bg:            210 25% 98%;   /* app background */
+  --bg-elev:       0 0% 100%;     /* cards, sheets */
+  --bg-muted:      210 20% 96%;   /* hover, subdued strips */
+  --border:        214 16% 91%;
+  --border-strong: 214 14% 84%;
+
+  /* Text */
+  --fg:            222 20% 14%;
+  --fg-muted:      220 9% 46%;
+  --fg-subtle:     220 9% 65%;
+
+  /* Brand + semantic accents (HSL) */
+  --primary:       243 75% 59%;
+  --primary-fg:    0 0% 100%;
+  --primary-soft:  243 90% 96%;
+
+  --success:       152 60% 38%;
+  --success-soft:  150 60% 95%;
+  --warning:       33 95% 49%;
+  --warning-soft:  39 100% 95%;
+  --danger:        0 75% 55%;
+  --danger-soft:   0 90% 96%;
+  --info:          200 95% 45%;
+  --info-soft:     200 100% 95%;
+
+  /* Routing tiers */
+  --tier-ba:       243 75% 59%;
+  --tier-ba-soft:  243 90% 96%;
+  --tier-l2:       28 90% 50%;
+  --tier-l2-soft:  33 100% 95%;
+
+  /* Shape + motion */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow:    0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 10px 30px -10px rgb(15 23 42 / 0.18);
+
+  --ease:       cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast:   120ms;
+  --dur:        180ms;
 }
 
+.dark {
+  --bg:            222 24% 8%;
+  --bg-elev:       222 22% 11%;
+  --bg-muted:      222 18% 14%;
+  --border:        220 12% 20%;
+  --border-strong: 220 12% 28%;
+
+  --fg:            210 20% 96%;
+  --fg-muted:      215 14% 65%;
+  --fg-subtle:     215 14% 48%;
+
+  --primary:       243 85% 70%;
+  --primary-fg:    222 24% 8%;
+  --primary-soft:  243 50% 18%;
+
+  --success:       152 55% 50%;
+  --success-soft:  152 40% 16%;
+  --warning:       33 95% 60%;
+  --warning-soft:  33 50% 16%;
+  --danger:        0 80% 65%;
+  --danger-soft:  0 50% 18%;
+  --info:          200 95% 60%;
+  --info-soft:     200 50% 16%;
+
+  --tier-ba:       243 85% 70%;
+  --tier-ba-soft:  243 50% 18%;
+  --tier-l2:       28 95% 60%;
+  --tier-l2-soft:  28 50% 18%;
+}
+
+/* Expose tokens to Tailwind v4's utility scanner */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg:            hsl(var(--bg));
+  --color-bg-elev:       hsl(var(--bg-elev));
+  --color-bg-muted:      hsl(var(--bg-muted));
+  --color-border:        hsl(var(--border));
+  --color-border-strong: hsl(var(--border-strong));
+
+  --color-fg:        hsl(var(--fg));
+  --color-fg-muted:  hsl(var(--fg-muted));
+  --color-fg-subtle: hsl(var(--fg-subtle));
+
+  --color-primary:      hsl(var(--primary));
+  --color-primary-fg:   hsl(var(--primary-fg));
+  --color-primary-soft: hsl(var(--primary-soft));
+
+  --color-success:      hsl(var(--success));
+  --color-success-soft: hsl(var(--success-soft));
+  --color-warning:      hsl(var(--warning));
+  --color-warning-soft: hsl(var(--warning-soft));
+  --color-danger:       hsl(var(--danger));
+  --color-danger-soft:  hsl(var(--danger-soft));
+  --color-info:         hsl(var(--info));
+  --color-info-soft:    hsl(var(--info-soft));
+
+  --color-tier-ba:       hsl(var(--tier-ba));
+  --color-tier-ba-soft:  hsl(var(--tier-ba-soft));
+  --color-tier-l2:       hsl(var(--tier-l2));
+  --color-tier-l2-soft:  hsl(var(--tier-l2-soft));
+
+  --radius-sm: var(--radius-sm);
+  --radius:    var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow:    var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* Removed dark mode auto-switching — app uses explicit theming */
+html, body { background: hsl(var(--bg)); color: hsl(var(--fg)); }
+body { font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Focus ring (keyboard only) */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
+
+* { scrollbar-width: thin; scrollbar-color: hsl(var(--border-strong)) transparent; }
+
+/* Skeleton shimmer */
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton {
+  position: relative; overflow: hidden;
+  background: hsl(var(--bg-muted));
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, hsl(var(--bg-elev) / 0.6), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s infinite var(--ease);
+}
+
+/* Soft pulse for "live" status dots */
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+.pulse-dot { animation: pulse-dot 1.8s infinite var(--ease); }

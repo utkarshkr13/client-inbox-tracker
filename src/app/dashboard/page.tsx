@@ -5,18 +5,27 @@ import Link from "next/link";
 import ProjectCard from "@/components/ProjectCard";
 import NewProjectForm from "@/components/NewProjectForm";
 import GmailConnectBanner from "@/components/GmailConnectBanner";
+import { Card, StatCard } from "@/components/ui/card";
+import { Sparkline } from "@/components/ui/sparkline";
+import { CheckCircle2, Clock, AlertOctagon, Users, ArrowRight, Inbox } from "lucide-react";
+
+function greeting(d: Date) {
+  const h = d.getHours();
+  if (h < 5)  return "Working late";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  if (h < 21) return "Good evening";
+  return "Working late";
+}
 
 export default async function DashboardPage() {
   const session = await getSession();
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  // Dynamic date windows
   const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
-  const threeDaysAgo = new Date(now);
-  threeDaysAgo.setDate(now.getDate() - 3);
+  const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
+  const threeDaysAgo = new Date(now); threeDaysAgo.setDate(now.getDate() - 3);
 
   const [projects, gmailToken, recentEmails, last3DaysEmails] = await Promise.all([
     prisma.project.findMany({
@@ -28,26 +37,22 @@ export default async function DashboardPage() {
       },
     }),
     prisma.gmailToken.findUnique({ where: { userId } }),
-    // Last 7 days — for KPI counts
     prisma.emailStatus.findMany({
       where: { userId, receivedAt: { gte: sevenDaysAgo } },
       select: { status: true, projectId: true, routingTier: true, receivedAt: true },
     }),
-    // Last 3 days — for the sparkline graph
     prisma.emailStatus.findMany({
       where: { userId, receivedAt: { gte: threeDaysAgo } },
       select: { receivedAt: true, status: true },
     }),
   ]);
 
-  // KPI aggregation from last 7 days
+  // Per-project rollup
   type StatusMap = Record<string, { pending: number; done: number; dismissed: number; escalated: number; total: number }>;
   const statusMap: StatusMap = {};
   let totalPending = 0, totalDone = 0, totalEscalated = 0;
   for (const e of recentEmails) {
-    if (!statusMap[e.projectId]) {
-      statusMap[e.projectId] = { pending: 0, done: 0, dismissed: 0, escalated: 0, total: 0 };
-    }
+    if (!statusMap[e.projectId]) statusMap[e.projectId] = { pending: 0, done: 0, dismissed: 0, escalated: 0, total: 0 };
     const s = e.status as keyof typeof statusMap[string];
     if (s in statusMap[e.projectId]) statusMap[e.projectId][s]++;
     statusMap[e.projectId].total++;
@@ -58,17 +63,15 @@ export default async function DashboardPage() {
   const totalEmails = recentEmails.length;
   const l2Count = recentEmails.filter((e) => e.routingTier === "l2").length;
 
-  // 3-day sparkline — group by day label (today, yesterday, day before)
-  const sparkDays: { label: string; date: string; total: number; pending: number }[] = [];
+  // 3-day sparkline (today + 2 days back)
+  const sparkDays: { label: string; value: number; sub: number }[] = [];
   for (let i = 2; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
+    const d = new Date(now); d.setDate(now.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
-    const label = i === 0 ? "Today" : i === 1 ? "Yesterday" : d.toLocaleDateString("en-IN", { weekday: "short" });
+    const label = i === 0 ? "Today" : i === 1 ? "Yest." : d.toLocaleDateString("en-IN", { weekday: "short" });
     const dayEmails = last3DaysEmails.filter((e) => e.receivedAt && new Date(e.receivedAt).toISOString().slice(0, 10) === dateStr);
-    sparkDays.push({ label, date: dateStr, total: dayEmails.length, pending: dayEmails.filter((e) => e.status === "pending").length });
+    sparkDays.push({ label, value: dayEmails.length, sub: dayEmails.filter((e) => e.status === "pending").length });
   }
-  const sparkMax = Math.max(...sparkDays.map((d) => d.total), 1);
 
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
@@ -76,113 +79,80 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       {!gmailToken && <GmailConnectBanner />}
 
-      {/* Welcome header */}
-      <div className="flex items-center justify-between">
+      {/* Welcome */}
+      <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Good morning 👋</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{today}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{greeting(now)}</h1>
+          <p className="text-sm text-fg-muted mt-1">{today}</p>
         </div>
         {gmailToken && (
-          <span className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-success bg-success-soft border border-success/20 px-3 py-1.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
             Gmail connected
           </span>
         )}
       </div>
 
-      {/* 3-day activity strip + KPIs */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        {/* 3-day sparkline card */}
-        <div className="sm:col-span-1 bg-white border border-slate-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-slate-500 mb-3">Last 3 days</p>
-          <div className="flex items-end gap-2 h-14">
-            {sparkDays.map((day) => (
-              <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col justify-end" style={{ height: "40px" }}>
-                  <div
-                    className="w-full bg-indigo-100 rounded-t relative overflow-hidden"
-                    style={{ height: `${Math.max((day.total / sparkMax) * 40, day.total > 0 ? 4 : 0)}px` }}
-                  >
-                    {day.pending > 0 && (
-                      <div
-                        className="absolute bottom-0 left-0 right-0 bg-orange-400 rounded-t"
-                        style={{ height: `${(day.pending / day.total) * 100}%` }}
-                      />
-                    )}
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-400 whitespace-nowrap">{day.label}</p>
-                <p className="text-xs font-bold text-slate-700">{day.total}</p>
-              </div>
-            ))}
+      {/* KPI grid: sparkline + 4 stat tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <Card className="col-span-2 lg:col-span-2 row-span-2 p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-xs font-medium text-fg-muted">3-day activity</p>
+              <p className="text-2xl font-bold text-fg tabular-nums">{last3DaysEmails.length}</p>
+              <p className="text-[11px] text-fg-subtle">emails received</p>
+            </div>
+            <div className="text-[10px] text-fg-subtle flex flex-col items-end gap-0.5">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-primary/30 rounded-sm" /> Total</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-warning/70 rounded-sm" /> Pending</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-indigo-100 rounded-sm inline-block" /> Total</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-400 rounded-sm inline-block" /> Pending</span>
-          </div>
-        </div>
+          <Sparkline data={sparkDays} height={56} />
+        </Card>
 
-        {/* KPI grid */}
-        <div className="sm:col-span-2 grid grid-cols-2 gap-3">
-          <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-            <p className="text-2xl font-bold text-orange-600">{totalPending}</p>
-            <p className="text-xs text-orange-500 mt-1">Pending</p>
-            <p className="text-[10px] text-orange-300 mt-0.5">last 7 days</p>
-          </div>
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-            <p className="text-2xl font-bold text-emerald-600">{totalDone}</p>
-            <p className="text-xs text-emerald-500 mt-1">Resolved</p>
-            <p className="text-[10px] text-emerald-300 mt-0.5">last 7 days</p>
-          </div>
-          {totalEscalated > 0 ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-2xl font-bold text-red-600">{totalEscalated}</p>
-              <p className="text-xs text-red-500 mt-1">Escalated</p>
-              <p className="text-[10px] text-red-300 mt-0.5">needs attention</p>
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <p className="text-2xl font-bold text-slate-700">{totalEmails}</p>
-              <p className="text-xs text-slate-400 mt-1">Total received</p>
-              <p className="text-[10px] text-slate-300 mt-0.5">last 7 days</p>
-            </div>
-          )}
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-2xl font-bold text-indigo-600">{l2Count}</p>
-            <p className="text-xs text-slate-400 mt-1">L2 queue</p>
-            <p className="text-[10px] text-slate-300 mt-0.5">last 7 days</p>
-          </div>
-        </div>
+        <StatCard label="Pending"   value={totalPending}   accent="warning"                              hint="last 7 days" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Resolved"  value={totalDone}      accent="success"                              hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"} hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="L2 queue"  value={l2Count}        accent="info"                                 hint={`of ${totalEmails} total`} icon={<Users className="w-3.5 h-3.5" />} />
       </div>
 
-      {/* Quick actions */}
       {totalPending > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-slate-500">{totalPending} email{totalPending !== 1 ? "s" : ""} awaiting response —</span>
-          <Link href="/dashboard/digest" className="text-sm text-indigo-600 font-medium hover:underline">View digest →</Link>
-        </div>
+        <Link
+          href="/dashboard/digest"
+          className="flex items-center justify-between bg-warning-soft border border-warning/20 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-warning/10 transition group"
+        >
+          <span className="text-fg">
+            <span className="text-warning font-semibold">{totalPending}</span> email{totalPending !== 1 ? "s" : ""} awaiting response
+          </span>
+          <span className="text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+            Open digest <ArrowRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
       )}
 
-      {/* Projects section header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-800">Projects</h2>
+      {/* Projects */}
+      <div className="flex items-end justify-between pt-2">
+        <div>
+          <h2 className="text-base font-semibold text-fg">Projects</h2>
+          <p className="text-xs text-fg-muted mt-0.5">{projects.length} active</p>
+        </div>
         {projects.length > 0 && (
-          <Link href="/dashboard/analytics" className="text-xs text-indigo-500 hover:underline">View analytics →</Link>
+          <Link href="/dashboard/analytics" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+            Analytics <ArrowRight className="w-3 h-3" />
+          </Link>
         )}
       </div>
 
       <NewProjectForm />
 
       {projects.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">
-          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
+        <Card className="text-center py-16">
+          <div className="w-12 h-12 bg-bg-muted rounded-xl flex items-center justify-center mx-auto mb-3">
+            <Inbox className="w-6 h-6 text-fg-subtle" />
           </div>
-          <p className="font-medium text-slate-500">No projects yet</p>
-          <p className="text-sm mt-1">Create one above to get started</p>
-        </div>
+          <p className="font-medium text-fg">No projects yet</p>
+          <p className="text-sm text-fg-muted mt-1">Create one above to get started</p>
+        </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
