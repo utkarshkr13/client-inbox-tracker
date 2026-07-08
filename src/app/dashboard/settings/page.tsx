@@ -2,14 +2,29 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ArrowLeft, Mail, RefreshCw, Unlink, CheckCircle2, XCircle, Plus, X, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 type Tag = { id: string; name: string; color: string };
 type ProjectTemplate = { id: string; name: string; description: string | null; createdAt: string };
+type GmailProfile = { connected: boolean; email?: string | null; messagesTotal?: number; error?: string };
 
 const PRESET_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
+const TABS = ["account", "tags", "webhooks", "templates"] as const;
+const TAB_LABELS: Record<(typeof TABS)[number], string> = {
+  account: "Account",
+  tags: "Tags",
+  webhooks: "Webhooks / Slack",
+  templates: "Project Templates",
+};
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<"tags" | "webhooks" | "templates">("tags");
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("account");
+
+  // Account / Gmail
+  const [gmail, setGmail] = useState<GmailProfile | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Tags
   const [tags, setTags] = useState<Tag[]>([]);
@@ -32,6 +47,7 @@ export default function SettingsPage() {
   const [ptSaving, setPtSaving] = useState(false);
 
   useEffect(() => {
+    fetch("/api/gmail/profile").then((r) => r.json()).then(setGmail);
     fetch("/api/tags").then((r) => r.json()).then((data) => { if (Array.isArray(data)) setTags(data); });
     fetch("/api/webhooks").then((r) => r.json()).then((data) => {
       if (data.webhookUrl) setWebhookUrl(data.webhookUrl);
@@ -40,6 +56,17 @@ export default function SettingsPage() {
     });
     fetch("/api/project-templates").then((r) => r.json()).then((data) => { if (Array.isArray(data)) setProjectTemplates(data); });
   }, []);
+
+  async function disconnectGmail() {
+    if (!confirm("Disconnect Gmail? Sync will stop until you reconnect.")) return;
+    setDisconnecting(true);
+    try {
+      await fetch("/api/gmail/disconnect", { method: "POST" });
+      setGmail({ connected: false, email: null });
+    } finally {
+      setDisconnecting(false);
+    }
+  }
 
   async function createTag() {
     if (!tagName.trim()) return;
@@ -85,72 +112,126 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600">← Dashboard</Link>
-        <h1 className="text-2xl font-bold text-slate-900 mt-1">Settings</h1>
-        <p className="text-sm text-slate-400 mt-0.5">Manage tags, webhooks, and project templates</p>
+        <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg inline-flex items-center gap-1">
+          <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
+        </Link>
+        <h1 className="text-2xl font-bold text-fg mt-2">Settings</h1>
+        <p className="text-sm text-fg-muted mt-0.5">Account, tags, webhooks, and project templates</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {(["tags", "webhooks", "templates"] as const).map((tab) => (
+      <div className="flex gap-1 bg-bg-muted rounded-xl p-1 w-fit overflow-x-auto">
+        {TABS.map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`text-sm px-4 py-2 rounded-lg transition capitalize ${activeTab === tab ? "bg-white shadow-sm text-slate-800 font-medium" : "text-slate-500 hover:text-slate-700"}`}>
-            {tab === "webhooks" ? "Webhooks / Slack" : tab === "templates" ? "Project Templates" : "Tags"}
+            className={`text-sm px-4 py-2 rounded-lg transition whitespace-nowrap ${activeTab === tab ? "bg-bg-elev shadow-sm text-fg font-medium" : "text-fg-muted hover:text-fg"}`}>
+            {TAB_LABELS[tab]}
           </button>
         ))}
       </div>
 
+      {/* Account tab */}
+      {activeTab === "account" && (
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold text-fg mb-1">Gmail connection</h2>
+          <p className="text-xs text-fg-muted mb-4">
+            Your inbox was connected during sign-in. Reconnect here if syncing stops working, or disconnect to revoke access.
+          </p>
+
+          {gmail === null ? (
+            <div className="skeleton h-16 rounded-lg" />
+          ) : gmail.connected ? (
+            <div className="flex items-center justify-between gap-4 bg-success-soft border border-success/20 rounded-lg p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-success/15 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4.5 h-4.5 text-success" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-fg truncate">{gmail.email}</p>
+                  <p className="text-xs text-fg-muted">
+                    {gmail.messagesTotal != null ? `${gmail.messagesTotal.toLocaleString()} messages in mailbox` : "Connected"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={() => (window.location.href = "/api/gmail/connect")}>
+                  <RefreshCw className="w-3.5 h-3.5" /> Reconnect
+                </Button>
+                <Button variant="ghost" size="sm" loading={disconnecting} onClick={disconnectGmail}>
+                  <Unlink className="w-3.5 h-3.5" /> Disconnect
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4 bg-danger-soft border border-danger/20 rounded-lg p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-danger/15 flex items-center justify-center shrink-0">
+                  <XCircle className="w-4.5 h-4.5 text-danger" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-fg">Not connected</p>
+                  <p className="text-xs text-fg-muted">Sync is paused until you reconnect Gmail.</p>
+                </div>
+              </div>
+              <Button variant="primary" size="sm" onClick={() => (window.location.href = "/api/gmail/connect")}>
+                <Mail className="w-3.5 h-3.5" /> Connect Gmail
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Tags tab */}
       {activeTab === "tags" && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-slate-700 mb-4">Create Tag</h2>
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-fg mb-4">Create tag</h2>
             <div className="flex items-center gap-3 flex-wrap">
               <input type="text" value={tagName} onChange={(e) => setTagName(e.target.value)} placeholder="Tag name"
                 onKeyDown={(e) => e.key === "Enter" && createTag()}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 flex-1 min-w-32" />
+                className="bg-bg border border-border rounded-lg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40 flex-1 min-w-32" />
               <div className="flex items-center gap-2">
                 {PRESET_COLORS.map((c) => (
                   <button key={c} onClick={() => setTagColor(c)}
-                    className={`w-6 h-6 rounded-full transition ${tagColor === c ? "ring-2 ring-offset-1 ring-slate-400 scale-110" : "hover:scale-110"}`}
+                    className={`w-6 h-6 rounded-full transition ${tagColor === c ? "ring-2 ring-offset-2 ring-offset-bg-elev ring-fg-subtle scale-110" : "hover:scale-110"}`}
                     style={{ background: c }} />
                 ))}
               </div>
-              <button onClick={createTag} disabled={tagSaving || !tagName.trim()}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">{tagSaving ? "…" : "Create"}</button>
+              <Button variant="primary" size="md" loading={tagSaving} disabled={!tagName.trim()} onClick={createTag}>
+                <Plus className="w-3.5 h-3.5" /> Create
+              </Button>
             </div>
-          </div>
+          </Card>
 
           {tags.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-700 mb-3">Existing Tags</h2>
+            <Card className="p-5">
+              <h2 className="text-sm font-semibold text-fg mb-3">Existing tags</h2>
               <div className="flex flex-wrap gap-2">
                 {tags.map((t) => (
                   <div key={t.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full border" style={{ background: t.color + "15", borderColor: t.color + "40" }}>
                     <span className="w-2 h-2 rounded-full" style={{ background: t.color }} />
                     <span className="text-sm font-medium" style={{ color: t.color }}>{t.name}</span>
-                    <button onClick={() => deleteTag(t.id)} className="text-slate-400 hover:text-red-500 text-xs ml-1">×</button>
+                    <button onClick={() => deleteTag(t.id)} className="text-fg-subtle hover:text-danger ml-1"><X className="w-3 h-3" /></button>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
       )}
 
       {/* Webhooks tab */}
       {activeTab === "webhooks" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+        <Card className="p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-700 mb-1">Webhook URL</h2>
-            <p className="text-xs text-slate-400 mb-3">Send a POST request to this URL when events occur. Works with Slack webhooks, Make, Zapier, etc.</p>
+            <h2 className="text-sm font-semibold text-fg mb-1">Webhook URL</h2>
+            <p className="text-xs text-fg-muted mb-3">Send a POST request to this URL when events occur. Works with Slack webhooks, Make, Zapier, etc.</p>
             <input type="url" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
               placeholder="https://hooks.slack.com/services/…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-700 mb-2">Trigger Events</h2>
-            <div className="flex flex-wrap gap-2">
+            <h2 className="text-sm font-semibold text-fg mb-2">Trigger events</h2>
+            <div className="flex flex-wrap gap-3">
               {["pending", "escalated", "sla_breach"].map((ev) => (
                 <label key={ev} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={webhookEvents.includes(ev)}
@@ -158,69 +239,64 @@ export default function SettingsPage() {
                       const evts = webhookEvents.split(",").filter(Boolean);
                       setWebhookEvents(e.target.checked ? [...evts, ev].join(",") : evts.filter((x) => x !== ev).join(","));
                     }}
-                    className="rounded border-slate-300 text-indigo-600" />
-                  <span className="text-sm text-slate-600 capitalize">{ev.replace("_", " ")}</span>
+                    className="rounded border-border text-primary" />
+                  <span className="text-sm text-fg-muted capitalize">{ev.replace("_", " ")}</span>
                 </label>
               ))}
             </div>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={webhookEnabled} onChange={(e) => setWebhookEnabled(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
-            <span className="text-sm text-slate-700 font-medium">Enable webhook</span>
+              className="w-4 h-4 rounded border-border text-primary" />
+            <span className="text-sm text-fg font-medium">Enable webhook</span>
           </label>
-          <button onClick={saveWebhook} disabled={webhookSaving}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${webhookSaved ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"} disabled:opacity-50`}>
-            {webhookSaved ? "✓ Saved" : webhookSaving ? "Saving…" : "Save Webhook"}
-          </button>
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-500">
-            <p className="font-medium text-slate-600 mb-1">Payload format:</p>
+          <Button variant={webhookSaved ? "success" : "primary"} loading={webhookSaving} onClick={saveWebhook}>
+            {webhookSaved ? <>✓ Saved</> : "Save webhook"}
+          </Button>
+          <div className="bg-bg-muted border border-border rounded-lg p-3 text-xs text-fg-muted">
+            <p className="font-medium text-fg mb-1">Payload format:</p>
             <code className="font-mono">{"{ event, gmailMessageId, projectId, subject, fromEmail }"}</code>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Project Templates tab */}
       {activeTab === "templates" && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-slate-700">Create Project Template</h2>
-            <p className="text-xs text-slate-400">Save a project configuration to reuse when creating new projects.</p>
+          <Card className="p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-fg">Create project template</h2>
+            <p className="text-xs text-fg-muted">Save a project configuration to reuse when creating new projects.</p>
             <input type="text" value={ptName} onChange={(e) => setPtName(e.target.value)} placeholder="Template name (e.g. 'Standard Client')"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40" />
             <input type="text" value={ptDesc} onChange={(e) => setPtDesc(e.target.value)} placeholder="Description (optional)"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40" />
             <div className="flex items-center gap-3">
-              <label className="text-sm text-slate-600">Default SLA (hours):</label>
+              <label className="text-sm text-fg-muted">Default SLA (hours):</label>
               <input type="number" value={ptSlaHours} onChange={(e) => setPtSlaHours(e.target.value)} min={1} max={168}
-                className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-20 bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40" />
             </div>
-            <button onClick={createProjectTemplate} disabled={ptSaving || !ptName.trim()}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
-              {ptSaving ? "Saving…" : "Save Template"}
-            </button>
-          </div>
+            <Button variant="primary" loading={ptSaving} disabled={!ptName.trim()} onClick={createProjectTemplate}>
+              Save template
+            </Button>
+          </Card>
 
           {projectTemplates.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-700 mb-3">Saved Templates</h2>
+            <Card className="p-5">
+              <h2 className="text-sm font-semibold text-fg mb-3">Saved templates</h2>
               <div className="space-y-2">
-                {projectTemplates.map((t) => {
-                  const config = (() => { try { return JSON.parse(t.description ?? "{}"); } catch { return {}; } })();
-                  return (
-                    <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">{t.name}</p>
-                        {t.description && <p className="text-xs text-slate-400 mt-0.5">{t.description}</p>}
-                      </div>
-                      <button onClick={() => deleteProjectTemplate(t.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded border border-transparent hover:border-red-200">
-                        Delete
-                      </button>
+                {projectTemplates.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between p-3 bg-bg-muted border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-fg">{t.name}</p>
+                      {t.description && <p className="text-xs text-fg-muted mt-0.5">{t.description}</p>}
                     </div>
-                  );
-                })}
+                    <button onClick={() => deleteProjectTemplate(t.id)} className="text-xs text-danger hover:bg-danger-soft px-2 py-1 rounded-md inline-flex items-center gap-1">
+                      <Trash2 className="w-3 h-3" /> Delete
+                    </button>
+                  </div>
+                ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
       )}

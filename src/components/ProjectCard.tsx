@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Trash2, ChevronRight, Mail } from "lucide-react";
+import { Badge } from "./ui/badge";
 
 type Project = {
   id: string;
@@ -13,8 +15,8 @@ type Project = {
 export default function ProjectCard({
   project,
   pendingCount,
-  doneCount,
-  totalCount,
+  doneCount = 0,
+  totalCount = 0,
 }: {
   project: Project;
   pendingCount: number;
@@ -25,7 +27,8 @@ export default function ProjectCard({
 
   async function deleteProject(e: React.MouseEvent) {
     e.preventDefault();
-    if (!confirm(`Delete "${project.name}"?`)) return;
+    e.stopPropagation();
+    if (!confirm(`Delete "${project.name}"? This removes all synced email metadata.`)) return;
     await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
     router.refresh();
   }
@@ -37,73 +40,68 @@ export default function ProjectCard({
     .toUpperCase()
     .slice(0, 2);
 
-  return (
-    <Link href={`/dashboard/projects/${project.id}`}>
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer group relative">
-        {/* Delete button */}
-        <button
-          onClick={deleteProject}
-          className="absolute top-3.5 right-3.5 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 transition opacity-0 group-hover:opacity-100 text-base leading-none"
-          title="Delete project"
-        >
-          ×
-        </button>
+  // Progress: % of total that's resolved. Falls back to 0.
+  const resolvedPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
-        {/* Avatar + name */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-200 transition">
-            <span className="text-indigo-600 font-bold text-sm">{initials}</span>
+  return (
+    <Link
+      href={`/dashboard/projects/${project.id}`}
+      className="group relative bg-bg-elev border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-md transition-all duration-200 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <button
+        onClick={deleteProject}
+        className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-md text-fg-subtle hover:text-danger hover:bg-danger-soft transition opacity-0 group-hover:opacity-100"
+        title="Delete project"
+        aria-label="Delete project"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-lg bg-primary-soft flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+          <span className="text-primary font-bold text-xs tracking-wide">{initials}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-fg text-sm truncate pr-6 group-hover:text-primary transition-colors">
+            {project.name}
+          </h2>
+          <p className="text-xs text-fg-subtle mt-0.5 flex items-center gap-1">
+            <Mail className="w-3 h-3" />
+            {project.clientEmails.length} client{project.clientEmails.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {totalCount > 0 ? (
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-[11px] text-fg-muted mb-1.5">
+            <span>Resolved this week</span>
+            <span className="tabular-nums font-medium text-fg">{doneCount}/{totalCount}</span>
           </div>
-          <div className="min-w-0">
-            <h2 className="font-semibold text-slate-800 text-sm truncate pr-4 group-hover:text-indigo-700 transition">
-              {project.name}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {project.clientEmails.length} client email{project.clientEmails.length !== 1 ? "s" : ""}
-            </p>
+          <div className="h-1.5 bg-bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-success transition-all duration-500"
+              style={{ width: `${resolvedPct}%` }}
+            />
           </div>
         </div>
+      ) : (
+        <p className="text-xs text-fg-subtle italic mb-3">No emails synced yet</p>
+      )}
 
-        {/* KPI mini-row */}
-        {(totalCount ?? 0) > 0 && (
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex-1 text-center bg-slate-50 rounded-lg py-1.5">
-              <p className="text-base font-bold text-slate-700">{totalCount}</p>
-              <p className="text-xs text-slate-400">total</p>
-            </div>
-            <div className="flex-1 text-center bg-orange-50 rounded-lg py-1.5">
-              <p className="text-base font-bold text-orange-600">{pendingCount}</p>
-              <p className="text-xs text-orange-400">pending</p>
-            </div>
-            <div className="flex-1 text-center bg-emerald-50 rounded-lg py-1.5">
-              <p className="text-base font-bold text-emerald-600">{doneCount ?? 0}</p>
-              <p className="text-xs text-emerald-400">done</p>
-            </div>
-          </div>
+      {/* Footer */}
+      <div className="pt-3 border-t border-border flex items-center justify-between">
+        {pendingCount > 0 ? (
+          <Badge tone="warning" dot>{pendingCount} pending</Badge>
+        ) : totalCount > 0 ? (
+          <Badge tone="success" dot>All clear</Badge>
+        ) : (
+          <Badge tone="neutral">Idle</Badge>
         )}
 
-        {/* Divider */}
-        <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-          {pendingCount > 0 ? (
-            <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-600 border border-orange-100 text-xs font-medium px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>
-              {pendingCount} pending
-            </span>
-          ) : (totalCount ?? project._count.emailStatuses) > 0 ? (
-            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-medium px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-              All clear
-            </span>
-          ) : (
-            <span className="text-xs text-slate-400 italic">No emails synced</span>
-          )}
-
-          <span className="text-xs text-slate-300 group-hover:text-indigo-400 transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        </div>
+        <ChevronRight className="w-4 h-4 text-fg-subtle group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
       </div>
     </Link>
   );

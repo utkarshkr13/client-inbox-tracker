@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAuthUrl } from "@/lib/gmail";
-import { getSession } from "@/lib/session";
 
+// No login gate here on purpose: this is now the single entry point for both
+// "Continue with Google" (first-time login) and "Reconnect Gmail" (Settings,
+// if a token expires or access is revoked). One consent screen does both.
 export async function GET() {
-  const session = await getSession();
-  if (!session.isLoggedIn) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const url = getAuthUrl();
   return NextResponse.redirect(url);
 }
