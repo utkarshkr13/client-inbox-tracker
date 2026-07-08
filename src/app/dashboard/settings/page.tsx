@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, RefreshCw, Unlink, CheckCircle2, XCircle, Plus, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, RefreshCw, Unlink, CheckCircle2, XCircle, Plus, X, Trash2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -11,12 +11,13 @@ type ProjectTemplate = { id: string; name: string; description: string | null; c
 type GmailProfile = { connected: boolean; email?: string | null; messagesTotal?: number; error?: string };
 
 const PRESET_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
-const TABS = ["account", "tags", "webhooks", "templates"] as const;
+const TABS = ["account", "tags", "webhooks", "templates", "developer"] as const;
 const TAB_LABELS: Record<(typeof TABS)[number], string> = {
   account: "Account",
   tags: "Tags",
   webhooks: "Webhooks / Slack",
   templates: "Project Templates",
+  developer: "Developer",
 };
 
 export default function SettingsPage() {
@@ -45,6 +46,10 @@ export default function SettingsPage() {
   const [ptDesc, setPtDesc] = useState("");
   const [ptSlaHours, setPtSlaHours] = useState("24");
   const [ptSaving, setPtSaving] = useState(false);
+
+  // Developer / QA sandbox
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/gmail/profile").then((r) => r.json()).then(setGmail);
@@ -107,6 +112,30 @@ export default function SettingsPage() {
   async function deleteProjectTemplate(id: string) {
     await fetch("/api/project-templates", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     setProjectTemplates((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  async function seedSandbox() {
+    setSeedLoading(true);
+    setSeedResult(null);
+    try {
+      const res = await fetch("/api/dev-seed", { method: "POST" });
+      const data = await res.json();
+      setSeedResult(data.ok ? `Created "🧪 QA Sandbox" with ${data.emailCount} sample emails.` : "Failed to seed sandbox.");
+    } finally {
+      setSeedLoading(false);
+    }
+  }
+
+  async function deleteSandbox() {
+    if (!confirm("Delete the QA Sandbox project and all its test data?")) return;
+    setSeedLoading(true);
+    setSeedResult(null);
+    try {
+      await fetch("/api/dev-seed", { method: "DELETE" });
+      setSeedResult("QA Sandbox deleted.");
+    } finally {
+      setSeedLoading(false);
+    }
   }
 
   return (
@@ -299,6 +328,36 @@ export default function SettingsPage() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Developer tab */}
+      {activeTab === "developer" && (
+        <Card className="p-5 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-fg mb-1 flex items-center gap-2">
+              <FlaskConical className="w-4 h-4 text-primary" /> QA Sandbox
+            </h2>
+            <p className="text-xs text-fg-muted">
+              Spin up a fully-populated test project — every status, routing tier, AI category, tag,
+              escalation, and follow-up state — so you can click through the whole app without waiting
+              on real client emails. Everything it creates is prefixed and easy to tell apart from real
+              data, and can be wiped in one click.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="primary" size="md" loading={seedLoading} onClick={seedSandbox}>
+              <FlaskConical className="w-3.5 h-3.5" /> Create / reset QA Sandbox
+            </Button>
+            <Button variant="ghost" size="md" loading={seedLoading} onClick={deleteSandbox}>
+              <Trash2 className="w-3.5 h-3.5" /> Delete QA Sandbox
+            </Button>
+          </div>
+          {seedResult && (
+            <div className="bg-success-soft border border-success/20 rounded-lg p-3 text-xs text-success font-medium">
+              {seedResult}
+            </div>
+          )}
+        </Card>
       )}
     </div>
   );
