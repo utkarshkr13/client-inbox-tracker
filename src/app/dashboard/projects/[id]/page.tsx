@@ -11,10 +11,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  const [project, slaConfig, gmailToken] = await Promise.all([
+  const [project, slaConfig, gmailToken, teamMembers] = await Promise.all([
     prisma.project.findUnique({ where: { id, userId }, include: { clientEmails: true } }),
     prisma.slaConfig.findUnique({ where: { projectId: id } }),
     prisma.gmailToken.findUnique({ where: { userId } }),
+    prisma.teamMember.findMany({
+      where: { projectId: id },
+      include: { gmailToken: { select: { gmailEmail: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   if (!project) notFound();
@@ -66,6 +71,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           clientEmails={project.clientEmails}
           projectId={id}
           slaThresholdHours={slaConfig?.thresholdHours ?? 24}
+          teamMembers={JSON.parse(JSON.stringify(teamMembers))}
+          baEmail={gmailToken?.gmailEmail ?? project.baEmail ?? null}
         />
       )}
     </div>

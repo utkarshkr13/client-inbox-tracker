@@ -25,6 +25,26 @@ export function getAuthUrl() {
   });
 }
 
+/**
+ * OAuth flow for a team member (usually L2) connecting their own inbox so
+ * emails sent only to them — never CC'd to the BA — stop being invisible.
+ * This is a data-access grant, not a login: it never creates a session,
+ * it only stores a Gmail token scoped to that team member.
+ */
+export function getTeamMemberAuthUrl(teamMemberId: string) {
+  const client = getOAuthClient();
+  return client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: [
+      "openid",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/gmail.readonly",
+    ],
+    state: JSON.stringify({ teamMemberId }),
+  });
+}
+
 /** Fetch the authenticated Google account's identity (email, name, picture). */
 export async function getUserInfo(client: InstanceType<typeof google.auth.OAuth2>) {
   const oauth2 = google.oauth2({ version: "v2", auth: client });
@@ -46,6 +66,32 @@ export async function getAuthedClient(userId: string) {
   client.on("tokens", async (tokens) => {
     await prisma.gmailToken.update({
       where: { userId },
+      data: {
+        accessToken: tokens.access_token ?? token.accessToken,
+        refreshToken: tokens.refresh_token ?? token.refreshToken,
+        expiryDate: tokens.expiry_date ? BigInt(tokens.expiry_date) : undefined,
+      },
+    });
+  });
+
+  return client;
+}
+
+/** Same as getAuthedClient, but for a team member's independently connected mailbox. */
+export async function getTeamMemberAuthedClient(teamMemberId: string) {
+  const token = await prisma.teamMemberGmailToken.findUnique({ where: { teamMemberId } });
+  if (!token) return null;
+
+  const client = getOAuthClient();
+  client.setCredentials({
+    access_token: token.accessToken,
+    refresh_token: token.refreshToken ?? undefined,
+    expiry_date: token.expiryDate ? Number(token.expiryDate) : undefined,
+  });
+
+  client.on("tokens", async (tokens) => {
+    await prisma.teamMemberGmailToken.update({
+      where: { teamMemberId },
       data: {
         accessToken: tokens.access_token ?? token.accessToken,
         refreshToken: tokens.refresh_token ?? token.refreshToken,
@@ -82,14 +128,16 @@ function hasRealAttachments(payload: any): boolean {
   return false;
 }
 
-export async function fetchEmailsFromSender(
-  userId: string,
+/**
+ * Fetch emails from a given sender using an already-authenticated client.
+ * Used for both the primary BA mailbox and any connected team-member mailbox,
+ * so the same fetch/parse logic covers every inbox we ingest from.
+ */
+export async function fetchEmailsFromSenderWithClient(
+  auth: InstanceType<typeof google.auth.OAuth2>,
   fromEmail: string,
   maxResults = 50
 ) {
-  const auth = await getAuthedClient(userId);
-  if (!auth) throw new Error("Gmail not connected");
-
   const gmail = google.gmail({ version: "v1", auth });
   const query = `from:${fromEmail}`;
 
@@ -107,7 +155,7 @@ export async function fetchEmailsFromSender(
         userId: "me",
         id: msg.id!,
         format: "metadata",
-        metadataHeaders: ["Subject", "From", "Date", "To", "Cc"],
+        metadataHeaders: ["Subject", "From", "Date", "To", "Cc", "Message-Id", "Message-ID"],
       });
 
       const headers = detail.data.payload?.headers ?? [];
@@ -116,6 +164,7 @@ export async function fetchEmailsFromSender(
       const date = headers.find((h) => h.name === "Date")?.value;
       const toRaw = headers.find((h) => h.name === "To")?.value ?? "";
       const ccRaw = headers.find((h) => h.name === "Cc")?.value ?? "";
+      const messageIdHeader = headers.find((h) => h.name?.toLowerCase() === "message-id")?.value ?? null;
 
       const fromName = from.includes("<")
         ? from.split("<")[0].trim().replace(/"/g, "")
@@ -138,6 +187,7 @@ export async function fetchEmailsFromSender(
       return {
         gmailMessageId: msg.id!,
         threadId: detail.data.threadId ?? null,
+        messageIdHeader,
         subject,
         fromEmail: fromAddress,
         fromName,
@@ -152,4 +202,15 @@ export async function fetchEmailsFromSender(
   );
 
   return detailed;
+}
+
+/** Back-compat wrapper: fetch using the primary BA (login session) mailbox. */
+export async function fetchEmailsFromSender(
+  userId: string,
+  fromEmail: string,
+  maxResults = 50
+) {
+  const auth = await getAuthedClient(userId);
+  if (!auth) throw new Error("Gmail not connected");
+  return fetchEmailsFromSenderWithClient(auth, fromEmail, maxResults);
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { fetchEmailsFromSender } from "@/lib/gmail";
+import { fetchEmailsFromSenderWithClient, getAuthedClient, getTeamMemberAuthedClient } from "@/lib/gmail";
 
 // -------------------------------------------------------------------
 // Routing decision — who should handle this email first?
@@ -64,12 +64,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!session.isLoggedIn) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.userId!;
 
-  const [project, gmailToken] = await Promise.all([
+  const [project, gmailToken, teamMembers] = await Promise.all([
     prisma.project.findUnique({
       where: { id, userId },
       include: { clientEmails: true },
     }),
     prisma.gmailToken.findUnique({ where: { userId } }),
+    prisma.teamMember.findMany({ where: { projectId: id }, include: { gmailToken: true } }),
   ]);
 
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -79,13 +80,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const baEmail = gmailToken.gmailEmail ?? project.baEmail ?? null;
   const l2Email = project.l2Email ?? null;
 
-  const allEmails = await Promise.allSettled(
-    project.clientEmails.map((ce: { email: string }) => fetchEmailsFromSender(userId, ce.email))
-  );
-
   type FetchedEmail = {
     gmailMessageId: string;
     threadId: string | null;
+    messageIdHeader: string | null;
     subject: string;
     fromEmail: string;
     fromName: string;
@@ -95,15 +93,64 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     hasAttachments: boolean;
     toEmails: string;
     ccEmails: string;
+    seenVia: string;
   };
 
-  const fetched: FetchedEmail[] = [];
-  for (const result of allEmails) {
-    if (result.status === "fulfilled") fetched.push(...result.value);
-    else console.error("[sync] Gmail fetch error:", result.reason);
+  // Connected mailboxes to ingest from: the primary BA inbox plus every team
+  // member (usually L2) who has connected their own Gmail. Without this, an
+  // email sent only to L2 — never CC'd to the BA — would never be seen at all,
+  // since the app previously only ever read one mailbox.
+  const primaryAuth = await getAuthedClient(userId);
+  const accounts: { auth: Awaited<ReturnType<typeof getAuthedClient>>; ownerEmail: string }[] = [];
+  if (primaryAuth) accounts.push({ auth: primaryAuth, ownerEmail: baEmail ?? "unknown" });
+
+  for (const member of teamMembers) {
+    if (!member.gmailToken) continue;
+    const memberAuth = await getTeamMemberAuthedClient(member.id);
+    if (memberAuth) accounts.push({ auth: memberAuth, ownerEmail: member.gmailToken.gmailEmail ?? member.email });
   }
 
+  const fetched: FetchedEmail[] = [];
+  const seenMessageIds = new Set<string>(); // dedup within this sync pass by RFC Message-ID
+  for (const account of accounts) {
+    if (!account.auth) continue;
+    const results = await Promise.allSettled(
+      project.clientEmails.map((ce: { email: string }) =>
+        fetchEmailsFromSenderWithClient(account.auth!, ce.email)
+      )
+    );
+    for (const result of results) {
+      if (result.status !== "fulfilled") {
+        console.error("[sync] Gmail fetch error:", result.reason);
+        continue;
+      }
+      for (const email of result.value) {
+        // Same email seen via two connected mailboxes (e.g. both BA and L2
+        // were addressed) — keep the first copy, skip the duplicate so
+        // pending counts don't double up.
+        const dedupKey = email.messageIdHeader ?? email.gmailMessageId;
+        if (seenMessageIds.has(dedupKey)) continue;
+        seenMessageIds.add(dedupKey);
+        fetched.push({ ...email, seenVia: account.ownerEmail });
+      }
+    }
+  }
+
+  // Also skip anything already stored under a different mailbox's message id
+  const existingByMessageId = await prisma.emailStatus.findMany({
+    where: { projectId: id, messageIdHeader: { in: fetched.map((e) => e.messageIdHeader).filter((v): v is string => !!v) } },
+    select: { messageIdHeader: true, gmailMessageId: true },
+  });
+  const alreadyStored = new Set(existingByMessageId.map((e) => e.messageIdHeader).filter(Boolean));
+  const alreadyStoredIds = new Set(existingByMessageId.map((e) => e.gmailMessageId));
+
   for (const email of fetched) {
+    if (email.messageIdHeader && alreadyStored.has(email.messageIdHeader) && !alreadyStoredIds.has(email.gmailMessageId)) {
+      // A different mailbox already ingested this exact email under a different
+      // gmailMessageId — don't insert a second row for it.
+      continue;
+    }
+
     const routingTier = smartRoute({
       toEmails: email.toEmails,
       ccEmails: email.ccEmails,
@@ -117,6 +164,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       create: {
         gmailMessageId: email.gmailMessageId,
         threadId: email.threadId,
+        messageIdHeader: email.messageIdHeader,
+        seenVia: email.seenVia,
         projectId: id,
         userId,
         subject: email.subject,
@@ -138,6 +187,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         snippet: email.snippet,
         receivedAt: email.receivedAt,
         threadId: email.threadId,
+        messageIdHeader: email.messageIdHeader,
+        seenVia: email.seenVia,
         aiCategory: email.aiCategory,
         hasAttachments: email.hasAttachments,
         toEmails: email.toEmails,
