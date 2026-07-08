@@ -26,7 +26,6 @@ export default async function DashboardPage() {
 
   const now = new Date();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
-  const threeDaysAgo = new Date(now); threeDaysAgo.setDate(now.getDate() - 3);
 
   const [
     projects,
@@ -36,7 +35,7 @@ export default async function DashboardPage() {
     // silently vanishes from every KPI while still showing in the sidebar badge.
     allTimeGrouped,
     allTimePendingL2,
-    last3DaysEmails,
+    last7DaysEmails,
     doneLast7Grouped,
     weeklyTotalGrouped,
   ] = await Promise.all([
@@ -56,7 +55,7 @@ export default async function DashboardPage() {
     }),
     prisma.emailStatus.count({ where: { userId, status: "pending", routingTier: "l2" } }),
     prisma.emailStatus.findMany({
-      where: { userId, receivedAt: { gte: threeDaysAgo } },
+      where: { userId, receivedAt: { gte: sevenDaysAgo } },
       select: { receivedAt: true, status: true },
     }),
     prisma.emailStatus.groupBy({
@@ -104,15 +103,19 @@ export default async function DashboardPage() {
   for (const g of weeklyTotalGrouped) weeklyTotalByProject[g.projectId] = g._count._all;
   const l2Count = allTimePendingL2;
 
-  // 3-day sparkline (today + 2 days back) — trend only, not a backlog claim
+  // 7-day sparkline (today + 6 days back) — trend only, not a backlog claim.
+  // Widened from 3 to 7 days: a 3-day window frequently rendered as a flat
+  // empty line for accounts whose recent volume happened to land on day 4+,
+  // even with a large real backlog, making the dashboard's hero chart look broken.
   const sparkDays: { label: string; value: number; sub: number }[] = [];
-  for (let i = 2; i >= 0; i--) {
+  for (let i = 6; i >= 0; i--) {
     const d = new Date(now); d.setDate(now.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
     const label = i === 0 ? "Today" : i === 1 ? "Yest." : d.toLocaleDateString("en-IN", { weekday: "short" });
-    const dayEmails = last3DaysEmails.filter((e) => e.receivedAt && new Date(e.receivedAt).toISOString().slice(0, 10) === dateStr);
+    const dayEmails = last7DaysEmails.filter((e) => e.receivedAt && new Date(e.receivedAt).toISOString().slice(0, 10) === dateStr);
     sparkDays.push({ label, value: dayEmails.length, sub: dayEmails.filter((e) => e.status === "pending").length });
   }
+  const hasRecentActivity = last7DaysEmails.length > 0;
 
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
@@ -148,8 +151,8 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-3 p-4 flex flex-col">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="text-xs font-medium text-fg-muted">3-day activity</p>
-              <p className="text-2xl font-bold text-fg tabular-nums">{last3DaysEmails.length}</p>
+              <p className="text-xs font-medium text-fg-muted">7-day activity</p>
+              <p className="text-2xl font-bold text-fg tabular-nums">{last7DaysEmails.length}</p>
               <p className="text-[11px] text-fg-subtle">emails received</p>
             </div>
             <div className="text-[10px] text-fg-subtle flex flex-col items-end gap-0.5">
@@ -157,9 +160,18 @@ export default async function DashboardPage() {
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Pending</span>
             </div>
           </div>
-          <div className="flex-1 flex items-end">
-            <Sparkline data={sparkDays} height={132} />
-          </div>
+          {hasRecentActivity ? (
+            <div className="flex-1 flex items-end">
+              <Sparkline data={sparkDays} height={132} />
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 py-6">
+              <p className="text-xs text-fg-subtle">No emails received in the last 7 days</p>
+              {totalPending > 0 && (
+                <p className="text-[11px] text-fg-subtle">The {totalPending} pending backlog is older — see it below</p>
+              )}
+            </div>
+          )}
         </Card>
 
         <div className="lg:col-span-2 grid grid-cols-2 grid-rows-2 gap-3">
