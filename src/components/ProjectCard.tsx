@@ -95,7 +95,11 @@ export default function ProjectCard({
         </div>
       ) : (
         <p className="text-xs text-fg-subtle italic mb-3">
-          {allTimeTotal > 0 ? "No new activity this week" : "No emails synced yet"}
+          {allTimeTotal === 0
+            ? "No emails synced yet"
+            : pendingCount > 0
+            ? `No new emails this week — ${pendingCount} pending from before`
+            : "No new activity this week"}
         </p>
       )}
 
