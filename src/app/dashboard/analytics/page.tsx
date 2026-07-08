@@ -54,62 +54,62 @@ export default async function AnalyticsPage() {
 
   const COLORS: Record<string, string> = {
     Billing: "bg-yellow-400", Bug: "bg-red-400", Feature: "bg-blue-400",
-    Meeting: "bg-purple-400", Approval: "bg-indigo-400", Update: "bg-teal-400", General: "bg-slate-300",
+    Meeting: "bg-purple-400", Approval: "bg-indigo-400", Update: "bg-teal-400", General: "bg-border-strong",
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600">← Dashboard</Link>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Analytics</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Last 30 days · {total} emails</p>
+          <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Dashboard</Link>
+          <h1 className="text-2xl font-bold text-fg mt-1">Analytics</h1>
+          <p className="text-sm text-fg-subtle mt-0.5">Last 30 days · {total} emails</p>
         </div>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total", value: total, cls: "text-slate-800 bg-white" },
-          { label: "Pending", value: byStatus.pending ?? 0, cls: "text-orange-600 bg-orange-50" },
-          { label: "Escalated", value: byStatus.escalated ?? 0, cls: "text-red-600 bg-red-50" },
-          { label: "Avg resolution", value: `${Math.round(avgResolutionHours)}h`, cls: "text-indigo-600 bg-indigo-50" },
+          { label: "Total", value: total, cls: "text-fg bg-bg-elev" },
+          { label: "Pending", value: byStatus.pending ?? 0, cls: "text-warning bg-warning-soft" },
+          { label: "Escalated", value: byStatus.escalated ?? 0, cls: "text-danger bg-danger-soft" },
+          { label: "Avg resolution", value: `${Math.round(avgResolutionHours)}h`, cls: "text-primary bg-primary-soft" },
         ].map(({ label, value, cls }) => (
-          <div key={label} className={`border border-slate-200 rounded-xl p-4 text-center ${cls}`}>
+          <div key={label} className={`border border-border rounded-xl p-4 text-center ${cls}`}>
             <p className="text-2xl font-bold">{value}</p>
-            <p className="text-xs text-slate-400 mt-1">{label}</p>
+            <p className="text-xs text-fg-subtle mt-1">{label}</p>
           </div>
         ))}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         {/* Status breakdown */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Status Breakdown</h2>
+        <div className="bg-bg-elev border border-border rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-fg mb-4">Status Breakdown</h2>
           <div className="space-y-2.5">
-            {[["pending", "bg-orange-400"], ["done", "bg-emerald-500"], ["dismissed", "bg-slate-300"], ["escalated", "bg-red-400"]].map(([s, cls]) => (
+            {[["pending", "bg-warning"], ["done", "bg-emerald-500"], ["dismissed", "bg-border-strong"], ["escalated", "bg-red-400"]].map(([s, cls]) => (
               <div key={s} className="flex items-center gap-3">
-                <span className="text-xs text-slate-600 w-20 capitalize">{s}</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <span className="text-xs text-fg-muted w-20 capitalize">{s}</span>
+                <div className="flex-1 bg-bg-muted rounded-full h-2.5 overflow-hidden">
                   <div className={`h-full rounded-full ${cls}`} style={{ width: `${total > 0 ? ((byStatus[s] ?? 0) / total) * 100 : 0}%` }} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 w-6 text-right">{byStatus[s] ?? 0}</span>
+                <span className="text-xs font-semibold text-fg w-6 text-right">{byStatus[s] ?? 0}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Category breakdown */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">AI Category Breakdown</h2>
+        <div className="bg-bg-elev border border-border rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-fg mb-4">AI Category Breakdown</h2>
           <div className="space-y-2.5">
             {Object.entries(byCategory).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
               <div key={cat} className="flex items-center gap-3">
-                <span className="text-xs text-slate-600 w-20">{cat}</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${COLORS[cat] ?? "bg-slate-400"}`} style={{ width: `${(count / total) * 100}%` }} />
+                <span className="text-xs text-fg-muted w-20">{cat}</span>
+                <div className="flex-1 bg-bg-muted rounded-full h-2.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${COLORS[cat] ?? "bg-fg-subtle"}`} style={{ width: `${(count / total) * 100}%` }} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 w-6 text-right">{count}</span>
+                <span className="text-xs font-semibold text-fg w-6 text-right">{count}</span>
               </div>
             ))}
           </div>
@@ -117,33 +117,33 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Routing split */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">BA vs L2 Routing</h2>
+      <div className="bg-bg-elev border border-border rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-fg mb-3">BA vs L2 Routing</h2>
         <div className="flex items-center gap-4">
-          <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden flex">
+          <div className="flex-1 bg-bg-muted rounded-full h-4 overflow-hidden flex">
             <div className="bg-indigo-500 h-full" style={{ width: `${total > 0 ? ((byRouting.ba ?? 0) / total) * 100 : 0}%` }} title={`BA: ${byRouting.ba ?? 0}`} />
-            <div className="bg-orange-400 h-full" style={{ width: `${total > 0 ? ((byRouting.l2 ?? 0) / total) * 100 : 0}%` }} title={`L2: ${byRouting.l2 ?? 0}`} />
+            <div className="bg-warning h-full" style={{ width: `${total > 0 ? ((byRouting.l2 ?? 0) / total) * 100 : 0}%` }} title={`L2: ${byRouting.l2 ?? 0}`} />
           </div>
           <div className="flex items-center gap-3 text-xs flex-shrink-0">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-indigo-500 rounded-full inline-block" /> BA: {byRouting.ba ?? 0}</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-orange-400 rounded-full inline-block" /> L2: {byRouting.l2 ?? 0}</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-warning rounded-full inline-block" /> L2: {byRouting.l2 ?? 0}</span>
           </div>
         </div>
       </div>
 
       {/* Per-project */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-slate-700 mb-4">Volume by Project</h2>
+      <div className="bg-bg-elev border border-border rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-fg mb-4">Volume by Project</h2>
         <div className="space-y-2.5">
           {Object.entries(byProject).sort((a, b) => b[1] - a[1]).map(([pId, count]) => {
             const proj = projects.find((p) => p.id === pId);
             return (
               <div key={pId} className="flex items-center gap-3">
-                <Link href={`/dashboard/projects/${pId}`} className="text-xs text-indigo-600 hover:underline w-32 truncate">{proj?.name ?? pId}</Link>
-                <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <Link href={`/dashboard/projects/${pId}`} className="text-xs text-primary hover:underline w-32 truncate">{proj?.name ?? pId}</Link>
+                <div className="flex-1 bg-bg-muted rounded-full h-2.5 overflow-hidden">
                   <div className="bg-indigo-400 h-full rounded-full" style={{ width: `${(count / total) * 100}%` }} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 w-6 text-right">{count}</span>
+                <span className="text-xs font-semibold text-fg w-6 text-right">{count}</span>
               </div>
             );
           })}

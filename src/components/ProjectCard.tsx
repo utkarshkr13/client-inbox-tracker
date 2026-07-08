@@ -17,11 +17,17 @@ export default function ProjectCard({
   pendingCount,
   doneCount = 0,
   totalCount = 0,
+  allTimeTotal = 0,
 }: {
   project: Project;
+  /** All-time pending count — drives the "N pending" / "All clear" badge. */
   pendingCount: number;
+  /** Emails marked done in the last 7 days — numerator for the weekly bar. */
   doneCount?: number;
+  /** Emails received in the last 7 days — denominator for the weekly bar. */
   totalCount?: number;
+  /** All-time synced email count — decides "All clear" vs "Idle" (no history yet). */
+  allTimeTotal?: number;
 }) {
   const router = useRouter();
 
@@ -40,7 +46,7 @@ export default function ProjectCard({
     .toUpperCase()
     .slice(0, 2);
 
-  // Progress: % of total that's resolved. Falls back to 0.
+  // Progress: % of this week's emails that are resolved. Falls back to 0.
   const resolvedPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -88,14 +94,16 @@ export default function ProjectCard({
           </div>
         </div>
       ) : (
-        <p className="text-xs text-fg-subtle italic mb-3">No emails synced yet</p>
+        <p className="text-xs text-fg-subtle italic mb-3">
+          {allTimeTotal > 0 ? "No new activity this week" : "No emails synced yet"}
+        </p>
       )}
 
       {/* Footer */}
       <div className="pt-3 border-t border-border flex items-center justify-between">
         {pendingCount > 0 ? (
           <Badge tone="warning" dot>{pendingCount} pending</Badge>
-        ) : totalCount > 0 ? (
+        ) : allTimeTotal > 0 ? (
           <Badge tone="success" dot>All clear</Badge>
         ) : (
           <Badge tone="neutral">Idle</Badge>
