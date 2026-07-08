@@ -5,9 +5,10 @@ import Link from "next/link";
 import ProjectCard from "@/components/ProjectCard";
 import NewProjectForm from "@/components/NewProjectForm";
 import GmailConnectBanner from "@/components/GmailConnectBanner";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import { Card, StatCard } from "@/components/ui/card";
 import { Sparkline } from "@/components/ui/sparkline";
-import { CheckCircle2, Clock, AlertOctagon, Users, ArrowRight, Inbox } from "lucide-react";
+import { CheckCircle2, Clock, AlertOctagon, Users, ArrowRight, Flame, PartyPopper } from "lucide-react";
 
 function greeting(d: Date) {
   const h = d.getHours();
@@ -47,6 +48,18 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  // ─────────────────────────────────────────────────────────────
+  // First-run: no projects yet. Hand off to the onboarding wizard
+  // instead of showing an empty dashboard shell.
+  // ─────────────────────────────────────────────────────────────
+  if (projects.length === 0) {
+    return (
+      <div className="max-w-lg mx-auto pt-8 sm:pt-16">
+        <OnboardingWizard gmailEmail={gmailToken?.gmailEmail ?? session.email} />
+      </div>
+    );
+  }
+
   // Per-project rollup
   type StatusMap = Record<string, { pending: number; done: number; dismissed: number; escalated: number; total: number }>;
   const statusMap: StatusMap = {};
@@ -74,6 +87,14 @@ export default async function DashboardPage() {
   }
 
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+  const firstName = session.name?.split(" ")[0];
+
+  // Priority project — the one with the most pending/escalated right now.
+  // This is the single most useful thing on the page: "where should I look first."
+  const priorityProject = [...projects]
+    .map((p) => ({ project: p, pending: statusMap[p.id]?.pending ?? 0, escalated: statusMap[p.id]?.escalated ?? 0 }))
+    .sort((a, b) => (b.escalated * 10 + b.pending) - (a.escalated * 10 + a.pending))[0];
+  const hasUrgentWork = priorityProject && (priorityProject.pending > 0 || priorityProject.escalated > 0);
 
   return (
     <div className="space-y-6">
@@ -82,16 +103,47 @@ export default async function DashboardPage() {
       {/* Welcome */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">{greeting(now)}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">
+            {greeting(now)}{firstName ? `, ${firstName}` : ""}
+          </h1>
           <p className="text-sm text-fg-muted mt-1">{today}</p>
         </div>
         {gmailToken && (
           <span className="inline-flex items-center gap-2 text-xs font-medium text-success bg-success-soft border border-success/20 px-3 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
-            Gmail connected
+            Gmail connected{gmailToken.gmailEmail ? ` · ${gmailToken.gmailEmail}` : ""}
           </span>
         )}
       </div>
+
+      {/* Priority callout — the single most actionable thing right now */}
+      {hasUrgentWork ? (
+        <Link
+          href={`/dashboard/projects/${priorityProject.project.id}`}
+          className="flex items-center gap-4 bg-gradient-to-r from-danger/10 via-warning/10 to-transparent border border-warning/20 rounded-xl px-5 py-4 hover:border-warning/40 transition-colors group"
+        >
+          <div className="w-10 h-10 rounded-lg bg-warning-soft flex items-center justify-center shrink-0">
+            <Flame className="w-5 h-5 text-warning" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-fg">
+              Start with <span className="text-warning">{priorityProject.project.name}</span>
+            </p>
+            <p className="text-xs text-fg-muted mt-0.5">
+              {priorityProject.escalated > 0 && `${priorityProject.escalated} escalated`}
+              {priorityProject.escalated > 0 && priorityProject.pending > 0 && " · "}
+              {priorityProject.pending > 0 && `${priorityProject.pending} pending`}
+              {" "}— the most urgent queue right now
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-fg-subtle group-hover:translate-x-1 group-hover:text-warning transition-all shrink-0" />
+        </Link>
+      ) : (
+        <div className="flex items-center gap-3 bg-success-soft border border-success/20 rounded-xl px-5 py-3.5">
+          <PartyPopper className="w-4.5 h-4.5 text-success shrink-0" />
+          <p className="text-sm text-fg">All clear — no pending or escalated emails across {projects.length} project{projects.length !== 1 ? "s" : ""}.</p>
+        </div>
+      )}
 
       {/* KPI grid: sparkline + 4 stat tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
@@ -116,56 +168,30 @@ export default async function DashboardPage() {
         <StatCard label="L2 queue"  value={l2Count}        accent="info"                                 hint={`of ${totalEmails} total`} icon={<Users className="w-3.5 h-3.5" />} />
       </div>
 
-      {totalPending > 0 && (
-        <Link
-          href="/dashboard/digest"
-          className="flex items-center justify-between bg-warning-soft border border-warning/20 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-warning/10 transition group"
-        >
-          <span className="text-fg">
-            <span className="text-warning font-semibold">{totalPending}</span> email{totalPending !== 1 ? "s" : ""} awaiting response
-          </span>
-          <span className="text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-            Open digest <ArrowRight className="w-3.5 h-3.5" />
-          </span>
-        </Link>
-      )}
-
       {/* Projects */}
       <div className="flex items-end justify-between pt-2">
         <div>
           <h2 className="text-base font-semibold text-fg">Projects</h2>
           <p className="text-xs text-fg-muted mt-0.5">{projects.length} active</p>
         </div>
-        {projects.length > 0 && (
-          <Link href="/dashboard/analytics" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-            Analytics <ArrowRight className="w-3 h-3" />
-          </Link>
-        )}
+        <Link href="/dashboard/analytics" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+          Analytics <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
 
       <NewProjectForm />
 
-      {projects.length === 0 ? (
-        <Card className="text-center py-16">
-          <div className="w-12 h-12 bg-bg-muted rounded-xl flex items-center justify-center mx-auto mb-3">
-            <Inbox className="w-6 h-6 text-fg-subtle" />
-          </div>
-          <p className="font-medium text-fg">No projects yet</p>
-          <p className="text-sm text-fg-muted mt-1">Create one above to get started</p>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              pendingCount={statusMap[project.id]?.pending ?? 0}
-              doneCount={statusMap[project.id]?.done ?? 0}
-              totalCount={statusMap[project.id]?.total ?? 0}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            pendingCount={statusMap[project.id]?.pending ?? 0}
+            doneCount={statusMap[project.id]?.done ?? 0}
+            totalCount={statusMap[project.id]?.total ?? 0}
+          />
+        ))}
+      </div>
     </div>
   );
 }

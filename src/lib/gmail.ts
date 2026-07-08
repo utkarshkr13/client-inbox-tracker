@@ -14,8 +14,22 @@ export function getAuthUrl() {
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/gmail.readonly"],
+    // One consent screen grants both identity (who is this) and Gmail read
+    // access — no separate "connect Gmail" step after login.
+    scope: [
+      "openid",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/gmail.readonly",
+    ],
   });
+}
+
+/** Fetch the authenticated Google account's identity (email, name, picture). */
+export async function getUserInfo(client: InstanceType<typeof google.auth.OAuth2>) {
+  const oauth2 = google.oauth2({ version: "v2", auth: client });
+  const { data } = await oauth2.userinfo.get();
+  return { email: data.email ?? null, name: data.name ?? null, picture: data.picture ?? null };
 }
 
 export async function getAuthedClient(userId: string) {
