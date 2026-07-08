@@ -29,16 +29,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600">← Projects</Link>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">{project.name}</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Projects</Link>
+          <h1 className="text-2xl font-bold text-fg mt-1">{project.name}</h1>
+          <p className="text-sm text-fg-subtle mt-0.5">
             {project.clientEmails.length} client email{project.clientEmails.length !== 1 ? "s" : ""}
-            {emailStatuses.length > 0 && <span className="ml-2 text-slate-300">· {emailStatuses.length} total synced</span>}
+            {emailStatuses.length > 0 && <span className="ml-2 text-fg-subtle">· {emailStatuses.length} total synced</span>}
           </p>
         </div>
         <div className="flex gap-2 flex-shrink-0 flex-wrap">
           <Link href={`/dashboard/projects/${id}/settings`}
-            className="text-sm border border-slate-200 text-slate-600 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
+            className="text-sm border border-border text-fg-muted px-3 py-2 rounded-xl hover:bg-bg-muted transition">
             Settings
           </Link>
           {gmailToken && (
@@ -48,7 +48,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </div>
 
       {!gmailToken && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <div className="bg-warning-soft border border-warning/25 rounded-xl p-4 text-sm text-warning">
           Gmail not connected.{" "}
           <Link href="/api/gmail/connect" className="underline font-medium">Connect Gmail</Link>{" "}
           to fetch emails.
@@ -56,9 +56,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       )}
 
       {project.clientEmails.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-fg-subtle">
           No client emails added.{" "}
-          <Link href={`/dashboard/projects/${id}/settings`} className="underline text-slate-600">Add some →</Link>
+          <Link href={`/dashboard/projects/${id}/settings`} className="underline text-fg-muted">Add some →</Link>
         </div>
       ) : (
         <EmailList

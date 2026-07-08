@@ -28,7 +28,18 @@ export default async function DashboardPage() {
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const threeDaysAgo = new Date(now); threeDaysAgo.setDate(now.getDate() - 3);
 
-  const [projects, gmailToken, recentEmails, last3DaysEmails] = await Promise.all([
+  const [
+    projects,
+    gmailToken,
+    // All-time rollup per project+status — "pending" / "All clear" claims must be
+    // based on this, not a 7-day window, otherwise a backlog older than a week
+    // silently vanishes from every KPI while still showing in the sidebar badge.
+    allTimeGrouped,
+    allTimePendingL2,
+    last3DaysEmails,
+    doneLast7Grouped,
+    weeklyTotalGrouped,
+  ] = await Promise.all([
     prisma.project.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -38,13 +49,25 @@ export default async function DashboardPage() {
       },
     }),
     prisma.gmailToken.findUnique({ where: { userId } }),
-    prisma.emailStatus.findMany({
-      where: { userId, receivedAt: { gte: sevenDaysAgo } },
-      select: { status: true, projectId: true, routingTier: true, receivedAt: true },
+    prisma.emailStatus.groupBy({
+      by: ["projectId", "status"],
+      where: { userId },
+      _count: { _all: true },
     }),
+    prisma.emailStatus.count({ where: { userId, status: "pending", routingTier: "l2" } }),
     prisma.emailStatus.findMany({
       where: { userId, receivedAt: { gte: threeDaysAgo } },
       select: { receivedAt: true, status: true },
+    }),
+    prisma.emailStatus.groupBy({
+      by: ["projectId"],
+      where: { userId, status: "done", updatedAt: { gte: sevenDaysAgo } },
+      _count: { _all: true },
+    }),
+    prisma.emailStatus.groupBy({
+      by: ["projectId"],
+      where: { userId, receivedAt: { gte: sevenDaysAgo } },
+      _count: { _all: true },
     }),
   ]);
 
@@ -60,23 +83,28 @@ export default async function DashboardPage() {
     );
   }
 
-  // Per-project rollup
+  // Per-project all-time rollup (drives pending badge / "All clear" vs "Idle")
   type StatusMap = Record<string, { pending: number; done: number; dismissed: number; escalated: number; total: number }>;
   const statusMap: StatusMap = {};
-  let totalPending = 0, totalDone = 0, totalEscalated = 0;
-  for (const e of recentEmails) {
-    if (!statusMap[e.projectId]) statusMap[e.projectId] = { pending: 0, done: 0, dismissed: 0, escalated: 0, total: 0 };
-    const s = e.status as keyof typeof statusMap[string];
-    if (s in statusMap[e.projectId]) statusMap[e.projectId][s]++;
-    statusMap[e.projectId].total++;
-    if (e.status === "pending") totalPending++;
-    if (e.status === "done") totalDone++;
-    if (e.status === "escalated") totalEscalated++;
+  let totalPending = 0, totalDone7d = 0, totalEscalated = 0;
+  for (const g of allTimeGrouped) {
+    if (!statusMap[g.projectId]) statusMap[g.projectId] = { pending: 0, done: 0, dismissed: 0, escalated: 0, total: 0 };
+    const s = g.status as keyof (typeof statusMap)[string];
+    if (s in statusMap[g.projectId]) statusMap[g.projectId][s] = g._count._all;
+    statusMap[g.projectId].total += g._count._all;
+    if (g.status === "pending") totalPending += g._count._all;
+    if (g.status === "escalated") totalEscalated += g._count._all;
   }
-  const totalEmails = recentEmails.length;
-  const l2Count = recentEmails.filter((e) => e.routingTier === "l2").length;
+  const doneLast7ByProject: Record<string, number> = {};
+  for (const g of doneLast7Grouped) {
+    doneLast7ByProject[g.projectId] = g._count._all;
+    totalDone7d += g._count._all;
+  }
+  const weeklyTotalByProject: Record<string, number> = {};
+  for (const g of weeklyTotalGrouped) weeklyTotalByProject[g.projectId] = g._count._all;
+  const l2Count = allTimePendingL2;
 
-  // 3-day sparkline (today + 2 days back)
+  // 3-day sparkline (today + 2 days back) — trend only, not a backlog claim
   const sparkDays: { label: string; value: number; sub: number }[] = [];
   for (let i = 2; i >= 0; i--) {
     const d = new Date(now); d.setDate(now.getDate() - i);
@@ -87,14 +115,12 @@ export default async function DashboardPage() {
   }
 
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-  const firstName = session.name?.split(" ")[0];
 
-  // Priority project — the one with the most pending/escalated right now.
-  // This is the single most useful thing on the page: "where should I look first."
-  const priorityProject = [...projects]
-    .map((p) => ({ project: p, pending: statusMap[p.id]?.pending ?? 0, escalated: statusMap[p.id]?.escalated ?? 0 }))
-    .sort((a, b) => (b.escalated * 10 + b.pending) - (a.escalated * 10 + a.pending))[0];
-  const hasUrgentWork = priorityProject && (priorityProject.pending > 0 || priorityProject.escalated > 0);
+  // Which project needs attention most, ranked by true backlog + escalations
+  const priorityProject = projects
+    .map((p) => ({ project: p, score: (statusMap[p.id]?.escalated ?? 0) * 10 + (statusMap[p.id]?.pending ?? 0) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
 
   return (
     <div className="space-y-6">
@@ -103,49 +129,18 @@ export default async function DashboardPage() {
       {/* Welcome */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">
-            {greeting(now)}{firstName ? `, ${firstName}` : ""}
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{greeting(now)}</h1>
           <p className="text-sm text-fg-muted mt-1">{today}</p>
         </div>
         {gmailToken && (
           <span className="inline-flex items-center gap-2 text-xs font-medium text-success bg-success-soft border border-success/20 px-3 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
-            Gmail connected{gmailToken.gmailEmail ? ` · ${gmailToken.gmailEmail}` : ""}
+            Gmail connected
           </span>
         )}
       </div>
 
-      {/* Priority callout — the single most actionable thing right now */}
-      {hasUrgentWork ? (
-        <Link
-          href={`/dashboard/projects/${priorityProject.project.id}`}
-          className="flex items-center gap-4 bg-gradient-to-r from-danger/10 via-warning/10 to-transparent border border-warning/20 rounded-xl px-5 py-4 hover:border-warning/40 transition-colors group"
-        >
-          <div className="w-10 h-10 rounded-lg bg-warning-soft flex items-center justify-center shrink-0">
-            <Flame className="w-5 h-5 text-warning" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-fg">
-              Start with <span className="text-warning">{priorityProject.project.name}</span>
-            </p>
-            <p className="text-xs text-fg-muted mt-0.5">
-              {priorityProject.escalated > 0 && `${priorityProject.escalated} escalated`}
-              {priorityProject.escalated > 0 && priorityProject.pending > 0 && " · "}
-              {priorityProject.pending > 0 && `${priorityProject.pending} pending`}
-              {" "}— the most urgent queue right now
-            </p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-fg-subtle group-hover:translate-x-1 group-hover:text-warning transition-all shrink-0" />
-        </Link>
-      ) : (
-        <div className="flex items-center gap-3 bg-success-soft border border-success/20 rounded-xl px-5 py-3.5">
-          <PartyPopper className="w-4.5 h-4.5 text-success shrink-0" />
-          <p className="text-sm text-fg">All clear — no pending or escalated emails across {projects.length} project{projects.length !== 1 ? "s" : ""}.</p>
-        </div>
-      )}
-
-      {/* KPI grid: sparkline + 4 stat tiles */}
+      {/* KPI grid: sparkline + 4 stat tiles — pending/escalated are all-time, matching the sidebar badge */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card className="col-span-2 lg:col-span-2 row-span-2 p-4">
           <div className="flex items-start justify-between mb-3">
@@ -162,11 +157,38 @@ export default async function DashboardPage() {
           <Sparkline data={sparkDays} height={56} />
         </Card>
 
-        <StatCard label="Pending"   value={totalPending}   accent="warning"                              hint="last 7 days" icon={<Clock className="w-3.5 h-3.5" />} />
-        <StatCard label="Resolved"  value={totalDone}      accent="success"                              hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
-        <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"} hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
-        <StatCard label="L2 queue"  value={l2Count}        accent="info"                                 hint={`of ${totalEmails} total`} icon={<Users className="w-3.5 h-3.5" />} />
+        <StatCard label="Pending"   value={totalPending}   accent={totalPending > 0 ? "warning" : "default"}   hint="all time"     icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Resolved"  value={totalDone7d}    accent="success"                                     hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"}  hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="L2 queue"  value={l2Count}        accent="info"                                        hint="pending, all time" icon={<Users className="w-3.5 h-3.5" />} />
       </div>
+
+      {totalPending === 0 && totalEscalated === 0 ? (
+        <div className="flex items-center gap-2 bg-success-soft border border-success/20 rounded-lg px-4 py-2.5 text-sm">
+          <PartyPopper className="w-4 h-4 text-success shrink-0" />
+          <span className="text-fg">All clear — no pending or escalated emails across {projects.length} project{projects.length !== 1 ? "s" : ""}.</span>
+        </div>
+      ) : priorityProject ? (
+        <Link
+          href={`/dashboard/projects/${priorityProject.project.id}`}
+          className="flex items-center justify-between bg-gradient-to-r from-warning-soft to-danger-soft border border-warning/20 rounded-lg px-4 py-3 text-sm font-medium hover:border-warning/40 transition group"
+        >
+          <span className="text-fg inline-flex items-center gap-2">
+            <Flame className="w-4 h-4 text-warning shrink-0" />
+            Start with <span className="font-semibold">{priorityProject.project.name}</span> —{" "}
+            {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (
+              <span className="text-danger font-semibold">{statusMap[priorityProject.project.id].escalated} escalated</span>
+            )}
+            {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && ", "}
+            {(statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && (
+              <span className="text-warning font-semibold">{statusMap[priorityProject.project.id].pending} pending</span>
+            )}
+          </span>
+          <span className="text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all shrink-0">
+            Open <ArrowRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+      ) : null}
 
       {/* Projects */}
       <div className="flex items-end justify-between pt-2">
@@ -174,9 +196,11 @@ export default async function DashboardPage() {
           <h2 className="text-base font-semibold text-fg">Projects</h2>
           <p className="text-xs text-fg-muted mt-0.5">{projects.length} active</p>
         </div>
-        <Link href="/dashboard/analytics" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-          Analytics <ArrowRight className="w-3 h-3" />
-        </Link>
+        {projects.length > 0 && (
+          <Link href="/dashboard/analytics" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+            Analytics <ArrowRight className="w-3 h-3" />
+          </Link>
+        )}
       </div>
 
       <NewProjectForm />
@@ -187,8 +211,9 @@ export default async function DashboardPage() {
             key={project.id}
             project={project}
             pendingCount={statusMap[project.id]?.pending ?? 0}
-            doneCount={statusMap[project.id]?.done ?? 0}
-            totalCount={statusMap[project.id]?.total ?? 0}
+            doneCount={doneLast7ByProject[project.id] ?? 0}
+            totalCount={weeklyTotalByProject[project.id] ?? 0}
+            allTimeTotal={statusMap[project.id]?.total ?? 0}
           />
         ))}
       </div>

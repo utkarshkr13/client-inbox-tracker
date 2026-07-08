@@ -26,11 +26,11 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <Link href={`/dashboard/projects/${id}`} className="text-sm text-slate-400 hover:text-slate-600">
+        <Link href={`/dashboard/projects/${id}`} className="text-sm text-fg-subtle hover:text-fg-muted">
           ← Back to {project.name}
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 mt-1">Project Settings</h1>
-        <p className="text-sm text-slate-400 mt-0.5">{project.name}</p>
+        <h1 className="text-2xl font-bold text-fg mt-1">Project Settings</h1>
+        <p className="text-sm text-fg-subtle mt-0.5">{project.name}</p>
       </div>
 
       <ClientEmailManager projectId={id} clientEmails={project.clientEmails} />
