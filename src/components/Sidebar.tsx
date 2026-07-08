@@ -59,7 +59,7 @@ export function Sidebar({ urgentCount = 0 }: { urgentCount?: number }) {
 
       <div className="p-3 border-t border-border text-[10px] text-fg-subtle flex items-center gap-1.5">
         <Inbox className="w-3 h-3" />
-        <span>v0.2 · Live</span>
+        <span>Developed by Utkarsh Rajput</span>
       </div>
     </aside>
   );

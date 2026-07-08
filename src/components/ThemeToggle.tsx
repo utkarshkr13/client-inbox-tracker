@@ -1,15 +1,14 @@
 "use client";
 
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { cn } from "@/lib/cn";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const opts: { value: "light" | "dark" | "system"; icon: React.ReactNode; label: string }[] = [
-    { value: "light",  icon: <Sun className="w-3.5 h-3.5" />,    label: "Light"  },
-    { value: "system", icon: <Monitor className="w-3.5 h-3.5" />, label: "System" },
-    { value: "dark",   icon: <Moon className="w-3.5 h-3.5" />,   label: "Dark"   },
+  const opts: { value: "light" | "dark"; icon: React.ReactNode; label: string }[] = [
+    { value: "light", icon: <Sun className="w-3.5 h-3.5" />, label: "Light" },
+    { value: "dark",  icon: <Moon className="w-3.5 h-3.5" />, label: "Dark"  },
   ];
   return (
     <div className="inline-flex bg-bg-muted rounded-lg p-0.5 border border-border" role="radiogroup" aria-label="Theme">
