@@ -156,3 +156,21 @@ body { font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif
 /* Soft pulse for "live" status dots */
 @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
 .pulse-dot { animation: pulse-dot 1.8s infinite var(--ease); }
+
+/* Entrance animation for cards/tiles as they appear on page load.
+   Staggered via the .stagger wrapper (nth-child delay) so grids cascade
+   in rather than popping in all at once. Disabled under reduced-motion. */
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.anim-fade-up { animation: fade-up 420ms var(--ease) both; }
+.stagger > * { animation: fade-up 420ms var(--ease) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up, .stagger > * { animation: none !important; }
+}

@@ -7,7 +7,8 @@ import NewProjectForm from "@/components/NewProjectForm";
 import GmailConnectBanner from "@/components/GmailConnectBanner";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import { Card, StatCard } from "@/components/ui/card";
-import { Sparkline } from "@/components/ui/sparkline";
+import { ActivityChart } from "@/components/ui/activity-chart";
+import { CountUp } from "@/components/ui/count-up";
 import { CheckCircle2, Clock, AlertOctagon, Users, ArrowRight, Flame, PartyPopper } from "lucide-react";
 
 function greeting(d: Date) {
@@ -26,6 +27,7 @@ export default async function DashboardPage() {
 
   const now = new Date();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
+  const ninetyDaysAgo = new Date(now); ninetyDaysAgo.setDate(now.getDate() - 90);
 
   const [
     projects,
@@ -35,7 +37,8 @@ export default async function DashboardPage() {
     // silently vanishes from every KPI while still showing in the sidebar badge.
     allTimeGrouped,
     allTimePendingL2,
-    last7DaysEmails,
+    // Superset fetch: covers the 7d/30d/90d chart tabs from one query instead of three.
+    last90DaysEmails,
     doneLast7Grouped,
     weeklyTotalGrouped,
   ] = await Promise.all([
@@ -55,7 +58,7 @@ export default async function DashboardPage() {
     }),
     prisma.emailStatus.count({ where: { userId, status: "pending", routingTier: "l2" } }),
     prisma.emailStatus.findMany({
-      where: { userId, receivedAt: { gte: sevenDaysAgo } },
+      where: { userId, receivedAt: { gte: ninetyDaysAgo } },
       select: { receivedAt: true, status: true },
     }),
     prisma.emailStatus.groupBy({
@@ -103,20 +106,40 @@ export default async function DashboardPage() {
   for (const g of weeklyTotalGrouped) weeklyTotalByProject[g.projectId] = g._count._all;
   const l2Count = allTimePendingL2;
 
-  // 7-day sparkline (today + 6 days back) — trend only, not a backlog claim.
-  // Widened from 3 to 7 days: a 3-day window frequently rendered as a flat
-  // empty line for accounts whose recent volume happened to land on day 4+,
-  // even with a large real backlog, making the dashboard's hero chart look broken.
-  const sparkDays: { label: string; value: number; sub: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now); d.setDate(now.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const label = i === 0 ? "Today" : i === 1 ? "Yest." : d.toLocaleDateString("en-IN", { weekday: "short" });
-    const dayEmails = last7DaysEmails.filter((e) => e.receivedAt && new Date(e.receivedAt).toISOString().slice(0, 10) === dateStr);
-    sparkDays.push({ label, value: dayEmails.length, sub: dayEmails.filter((e) => e.status === "pending").length });
+  // Activity chart buckets for the 7d/30d/90d tabs. Each range always renders
+  // 7 buckets (matching the chart's visual weight regardless of which tab is
+  // active) but the window each bucket covers scales with the range — daily
+  // for 7d, ~4-day spans for 30d, ~13-day spans for 90d. All three are derived
+  // from the single last90DaysEmails fetch above, so switching tabs is instant
+  // and never fires a new request.
+  function buildBuckets(windowDays: number) {
+    const bucketMs = (windowDays * 24 * 60 * 60 * 1000) / 7;
+    const emailsInWindow = last90DaysEmails.filter((e) => e.receivedAt && now.getTime() - new Date(e.receivedAt).getTime() <= windowDays * 24 * 60 * 60 * 1000);
+    const buckets: { label: string; value: number; sub: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const bucketEnd = now.getTime() - i * bucketMs;
+      const bucketStart = bucketEnd - bucketMs;
+      const bucketEmails = emailsInWindow.filter((e) => {
+        const t = new Date(e.receivedAt!).getTime();
+        return t > bucketStart && t <= bucketEnd;
+      });
+      const endDate = new Date(bucketEnd);
+      const label = windowDays === 7
+        ? (i === 0 ? "Today" : i === 1 ? "Yest." : endDate.toLocaleDateString("en-IN", { weekday: "short" }))
+        : endDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      buckets.push({ label, value: bucketEmails.length, sub: bucketEmails.filter((e) => e.status === "pending").length });
+    }
+    return { buckets, total: emailsInWindow.length, hasActivity: emailsInWindow.length > 0 };
   }
-  const hasRecentActivity = last7DaysEmails.length > 0;
 
+  const range7 = buildBuckets(7);
+  const range30 = buildBuckets(30);
+  const range90 = buildBuckets(90);
+  const activityRanges = {
+    "7d":  { ...range7,  emptyLabel: "No emails received in the last 7 days" },
+    "30d": { ...range30, emptyLabel: "No emails received in the last 30 days" },
+    "90d": { ...range90, emptyLabel: "No emails received in the last 90 days" },
+  };
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
   // Which project needs attention most, ranked by true backlog + escalations
@@ -130,8 +153,9 @@ export default async function DashboardPage() {
       {!gmailToken && <GmailConnectBanner />}
 
       {/* Welcome */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3 anim-fade-up">
         <div>
+          <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mb-1">Overview</p>
           <h1 className="text-2xl font-bold tracking-tight text-fg">
             {greeting(now)}{session.name ? `, ${session.name.split(" ")[0]}` : ""}
           </h1>
@@ -147,38 +171,16 @@ export default async function DashboardPage() {
 
       {/* KPI grid: gradient line chart on the left, 4 uniform stat tiles on the right —
           items-stretch keeps both sides the same height regardless of content. */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-stretch stagger">
         <Card className="lg:col-span-3 p-4 flex flex-col">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <p className="text-xs font-medium text-fg-muted">7-day activity</p>
-              <p className="text-2xl font-bold text-fg tabular-nums">{last7DaysEmails.length}</p>
-              <p className="text-[11px] text-fg-subtle">emails received</p>
-            </div>
-            <div className="text-[10px] text-fg-subtle flex flex-col items-end gap-0.5">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" /> Total</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Pending</span>
-            </div>
-          </div>
-          {hasRecentActivity ? (
-            <div className="flex-1 flex items-end">
-              <Sparkline data={sparkDays} height={132} />
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 py-6">
-              <p className="text-xs text-fg-subtle">No emails received in the last 7 days</p>
-              {totalPending > 0 && (
-                <p className="text-[11px] text-fg-subtle">The {totalPending} pending backlog is older — see it below</p>
-              )}
-            </div>
-          )}
+          <ActivityChart ranges={activityRanges} totalPending={totalPending} />
         </Card>
 
         <div className="lg:col-span-2 grid grid-cols-2 grid-rows-2 gap-3">
-          <StatCard label="Pending"   value={totalPending}   accent={totalPending > 0 ? "warning" : "default"}   hint="all time"     icon={<Clock className="w-3.5 h-3.5" />} />
-          <StatCard label="Resolved"  value={totalDone7d}    accent="success"                                     hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
-          <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"}  hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
-          <StatCard label="L2 queue"  value={l2Count}        accent="info"                                        hint="pending, all time" icon={<Users className="w-3.5 h-3.5" />} />
+          <StatCard label="Pending"   value={<CountUp value={totalPending} />}   accent={totalPending > 0 ? "warning" : "default"}   hint="all time"     icon={<Clock className="w-3.5 h-3.5" />} />
+          <StatCard label="Resolved"  value={<CountUp value={totalDone7d} />}    accent="success"                                     hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+          <StatCard label="Escalated" value={<CountUp value={totalEscalated} />} accent={totalEscalated > 0 ? "danger" : "default"}  hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+          <StatCard label="L2 queue"  value={<CountUp value={l2Count} />}        accent="info"                                        hint="pending, all time" icon={<Users className="w-3.5 h-3.5" />} />
         </div>
       </div>
 
@@ -224,8 +226,8 @@ export default async function DashboardPage() {
 
       <NewProjectForm />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
+        {projects.map((project, i) => (
           <ProjectCard
             key={project.id}
             project={project}
@@ -233,6 +235,7 @@ export default async function DashboardPage() {
             doneCount={doneLast7ByProject[project.id] ?? 0}
             totalCount={weeklyTotalByProject[project.id] ?? 0}
             allTimeTotal={statusMap[project.id]?.total ?? 0}
+            accentIndex={i}
           />
         ))}
       </div>
