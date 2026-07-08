@@ -51,13 +51,25 @@ export function StatCard({
     danger:  "text-danger",
     info:    "text-info",
   };
+  const iconBadge: Record<string, string> = {
+    default: "bg-bg-muted text-fg-muted",
+    primary: "bg-primary-soft text-primary",
+    success: "bg-success-soft text-success",
+    warning: "bg-warning-soft text-warning",
+    danger:  "bg-danger-soft text-danger",
+    info:    "bg-info-soft text-info",
+  };
   return (
     <Card className="relative overflow-hidden">
       <div className={cn("absolute left-0 top-0 bottom-0 w-0.5", accentBar[accent])} />
       <div className="p-4">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-medium text-fg-muted">{label}</span>
-          {icon && <span className="text-fg-subtle">{icon}</span>}
+          {icon && (
+            <span className={cn("w-7 h-7 rounded-full flex items-center justify-center shrink-0", iconBadge[accent])}>
+              {icon}
+            </span>
+          )}
         </div>
         <p className={cn("text-2xl font-bold tracking-tight tabular-nums", valueColor[accent])}>{value}</p>
         {hint && <p className="text-[11px] text-fg-subtle mt-1">{hint}</p>}

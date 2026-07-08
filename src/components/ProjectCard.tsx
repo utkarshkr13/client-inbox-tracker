@@ -12,12 +12,24 @@ type Project = {
   _count: { emailStatuses: number };
 };
 
+// Soft top-down accent washes, cycled by card position so a grid of
+// projects reads as a set rather than a wall of identical white tiles.
+// Each entry must be a literal Tailwind class string (not built from
+// template interpolation) so the JIT scanner picks it up.
+const ACCENT_WASHES = [
+  "from-primary-soft/60",
+  "from-warning-soft/60",
+  "from-danger-soft/45",
+  "from-info-soft/60",
+];
+
 export default function ProjectCard({
   project,
   pendingCount,
   doneCount = 0,
   totalCount = 0,
   allTimeTotal = 0,
+  accentIndex = 0,
 }: {
   project: Project;
   /** All-time pending count — drives the "N pending" / "All clear" badge. */
@@ -28,8 +40,11 @@ export default function ProjectCard({
   totalCount?: number;
   /** All-time synced email count — decides "All clear" vs "Idle" (no history yet). */
   allTimeTotal?: number;
+  /** Cycles the top accent wash so cards in a grid aren't visually identical. */
+  accentIndex?: number;
 }) {
   const router = useRouter();
+  const wash = ACCENT_WASHES[accentIndex % ACCENT_WASHES.length];
 
   async function deleteProject(e: React.MouseEvent) {
     e.preventDefault();
@@ -52,8 +67,10 @@ export default function ProjectCard({
   return (
     <Link
       href={`/dashboard/projects/${project.id}`}
-      className="group relative bg-bg-elev border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-md transition-all duration-200 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group relative bg-bg-elev border border-border rounded-xl p-5 overflow-hidden hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${wash} to-transparent`} />
+
       <button
         onClick={deleteProject}
         className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-md text-fg-subtle hover:text-danger hover:bg-danger-soft transition opacity-0 group-hover:opacity-100"
