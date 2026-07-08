@@ -127,9 +127,11 @@ export default async function DashboardPage() {
       {!gmailToken && <GmailConnectBanner />}
 
       {/* Welcome */}
-      <div className="flex items-end justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">{greeting(now)}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">
+            {greeting(now)}{session.name ? `, ${session.name.split(" ")[0]}` : ""}
+          </h1>
           <p className="text-sm text-fg-muted mt-1">{today}</p>
         </div>
         {gmailToken && (
@@ -140,27 +142,32 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* KPI grid: sparkline + 4 stat tiles — pending/escalated are all-time, matching the sidebar badge */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        <Card className="col-span-2 lg:col-span-2 row-span-2 p-4">
-          <div className="flex items-start justify-between mb-3">
+      {/* KPI grid: gradient line chart on the left, 4 uniform stat tiles on the right —
+          items-stretch keeps both sides the same height regardless of content. */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-stretch">
+        <Card className="lg:col-span-3 p-4 flex flex-col">
+          <div className="flex items-start justify-between mb-2">
             <div>
               <p className="text-xs font-medium text-fg-muted">3-day activity</p>
               <p className="text-2xl font-bold text-fg tabular-nums">{last3DaysEmails.length}</p>
               <p className="text-[11px] text-fg-subtle">emails received</p>
             </div>
             <div className="text-[10px] text-fg-subtle flex flex-col items-end gap-0.5">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-primary/30 rounded-sm" /> Total</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-warning/70 rounded-sm" /> Pending</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" /> Total</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Pending</span>
             </div>
           </div>
-          <Sparkline data={sparkDays} height={56} />
+          <div className="flex-1 flex items-end">
+            <Sparkline data={sparkDays} height={132} />
+          </div>
         </Card>
 
-        <StatCard label="Pending"   value={totalPending}   accent={totalPending > 0 ? "warning" : "default"}   hint="all time"     icon={<Clock className="w-3.5 h-3.5" />} />
-        <StatCard label="Resolved"  value={totalDone7d}    accent="success"                                     hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
-        <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"}  hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
-        <StatCard label="L2 queue"  value={l2Count}        accent="info"                                        hint="pending, all time" icon={<Users className="w-3.5 h-3.5" />} />
+        <div className="lg:col-span-2 grid grid-cols-2 grid-rows-2 gap-3">
+          <StatCard label="Pending"   value={totalPending}   accent={totalPending > 0 ? "warning" : "default"}   hint="all time"     icon={<Clock className="w-3.5 h-3.5" />} />
+          <StatCard label="Resolved"  value={totalDone7d}    accent="success"                                     hint="last 7 days" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+          <StatCard label="Escalated" value={totalEscalated} accent={totalEscalated > 0 ? "danger" : "default"}  hint={totalEscalated > 0 ? "needs attention" : "all calm"} icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+          <StatCard label="L2 queue"  value={l2Count}        accent="info"                                        hint="pending, all time" icon={<Users className="w-3.5 h-3.5" />} />
+        </div>
       </div>
 
       {totalPending === 0 && totalEscalated === 0 ? (

@@ -21,6 +21,7 @@ type EmailStatus = {
   hasAttachments?: boolean;
   toEmails?: string | null;
   ccEmails?: string | null;
+  seenVia?: string | null;
   receivedAt: Date | string | null;
   followUpAt?: Date | string | null;
   escalationNote?: string | null;
@@ -29,6 +30,7 @@ type EmailStatus = {
 };
 
 type ClientEmail = { id: string; email: string; label: string | null };
+type TeamMember = { id: string; name: string; email: string; role: string; gmailToken: { gmailEmail: string | null } | null };
 
 function formatDate(d: Date | string | null) {
   if (!d) return "";
@@ -456,11 +458,15 @@ export default function EmailList({
   clientEmails,
   projectId,
   slaThresholdHours = 24,
+  teamMembers = [],
+  baEmail = null,
 }: {
   emailStatuses: EmailStatus[];
   clientEmails: ClientEmail[];
   projectId: string;
   slaThresholdHours?: number;
+  teamMembers?: TeamMember[];
+  baEmail?: string | null;
 }) {
   const [statuses, setStatuses] = useState<EmailStatus[]>(emailStatuses);
   const [filter, setFilter] = useState<"all" | "pending" | "done" | "dismissed" | "escalated">("all");
@@ -469,6 +475,7 @@ export default function EmailList({
   // Default to showing full history — a 7-day default silently hid months
   // of backlog behind a filter with no indication anything was hidden.
   const [fromDate, setFromDate] = useState("");
+  const [personFilter, setPersonFilter] = useState<{ type: "seenVia" | "fromEmail"; value: string; label: string } | null>(null);
   const [viewMode, setViewMode] = useState<"sender" | "thread" | "category">("sender");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -487,7 +494,12 @@ export default function EmailList({
   }
 
   const dateFiltered = statuses.filter((e) => !fromDate || !e.receivedAt ? true : new Date(e.receivedAt) >= new Date(fromDate));
-  const searchFiltered = searchQ ? dateFiltered.filter((e) => {
+  const personFiltered = !personFilter ? dateFiltered : dateFiltered.filter((e) =>
+    personFilter.type === "seenVia"
+      ? (e.seenVia ?? "").toLowerCase() === personFilter.value.toLowerCase()
+      : (e.fromEmail ?? "").toLowerCase() === personFilter.value.toLowerCase()
+  );
+  const searchFiltered = searchQ ? personFiltered.filter((e) => {
     const q = searchQ.toLowerCase();
     return e.subject?.toLowerCase().includes(q) || e.snippet?.toLowerCase().includes(q) || e.fromEmail?.toLowerCase().includes(q) || e.fromName?.toLowerCase().includes(q);
   }) : dateFiltered;
@@ -514,6 +526,34 @@ export default function EmailList({
   const l2Count = dateFiltered.filter((e) => e.routingTier === "l2").length;
   const baCount = dateFiltered.filter((e) => e.routingTier === "ba").length;
   const categories = Array.from(new Set(dateFiltered.map((e) => e.aiCategory).filter(Boolean))) as string[];
+
+  // Legacy rows synced before multi-account ingestion existed have no
+  // seenVia — they all came through the BA's mailbox, so treat a blank
+  // seenVia as "BA" rather than showing them as invisible/unaccounted for.
+  const teamStats = [
+    ...(baEmail ? [{
+      id: "__ba__",
+      name: "You (BA)",
+      role: "ba",
+      matchEmail: baEmail,
+      connected: true,
+      pending: dateFiltered.filter((e) => {
+        const via = (e.seenVia ?? "").toLowerCase();
+        return (via === baEmail.toLowerCase() || !via) && e.status === "pending";
+      }).length,
+    }] : []),
+    ...teamMembers.map((tm) => {
+      const matchEmail = tm.gmailToken?.gmailEmail ?? tm.email;
+      return {
+        id: tm.id,
+        name: tm.name,
+        role: tm.role,
+        matchEmail,
+        connected: !!tm.gmailToken,
+        pending: dateFiltered.filter((e) => (e.seenVia ?? "").toLowerCase() === matchEmail.toLowerCase() && e.status === "pending").length,
+      };
+    }),
+  ];
 
   const clientStats = clientEmails.map((ce) => {
     const ceEmails = dateFiltered.filter((e) => (e.fromEmail ?? "").toLowerCase() === ce.email.toLowerCase());
@@ -563,25 +603,68 @@ export default function EmailList({
         <span className="text-fg-subtle ml-auto">BA has full visibility of all emails incl. L2 queue</span>
       </div>
 
-      {/* Per-client cards */}
-      {clientStats.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          {clientStats.map((cs) => (
-            <div key={cs.id} className="bg-bg-elev border border-border rounded-xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-primary font-bold text-xs">{(cs.label || cs.email).slice(0, 2).toUpperCase()}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-fg truncate">{cs.label || cs.email}</p>
-                <p className="text-xs text-fg-subtle truncate">{cs.email}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs font-medium text-primary">{cs.total} email{cs.total !== 1 ? "s" : ""}</span>
-                  {cs.pending > 0 && <span className="text-xs text-warning">{cs.pending} pending</span>}
-                  {cs.latest && <span className="text-xs text-fg-subtle">Last: {formatDate(cs.latest)}</span>}
-                </div>
-              </div>
+      {/* People — tap a team member or client to see just their queue.
+          Team members are filtered by which mailbox actually ingested the
+          email (seenVia), so multiple L2s each show their own real inbox
+          instead of a shared "l2" bucket. */}
+      {(teamStats.length > 0 || clientStats.length > 0) && (
+        <div className="space-y-2">
+          {teamStats.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {teamStats.map((tm) => {
+                const active = personFilter?.type === "seenVia" && personFilter.value.toLowerCase() === tm.matchEmail.toLowerCase();
+                return (
+                  <button
+                    key={tm.id}
+                    onClick={() => setPersonFilter(active ? null : { type: "seenVia", value: tm.matchEmail, label: tm.name })}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition text-left ${active ? "border-primary bg-primary-soft" : "border-border bg-bg-elev hover:border-primary/40"}`}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${tm.role === "ba" ? "bg-primary-soft" : "bg-warning-soft"}`}>
+                      <span className={`font-bold text-[10px] ${tm.role === "ba" ? "text-primary" : "text-warning"}`}>{tm.name.slice(0, 2).toUpperCase()}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-fg truncate">{tm.name} <span className="font-normal text-fg-subtle uppercase">· {tm.role}</span></p>
+                      <p className="text-[11px] text-fg-subtle truncate">
+                        {tm.connected ? `${tm.pending} pending` : "not connected"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          )}
+          {clientStats.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {clientStats.map((cs) => {
+                const active = personFilter?.type === "fromEmail" && personFilter.value.toLowerCase() === cs.email.toLowerCase();
+                return (
+                  <button
+                    key={cs.id}
+                    onClick={() => setPersonFilter(active ? null : { type: "fromEmail", value: cs.email, label: cs.label || cs.email })}
+                    className={`bg-bg-elev border rounded-xl p-4 flex items-center gap-3 text-left transition ${active ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40"}`}
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary-soft flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary font-bold text-xs">{(cs.label || cs.email).slice(0, 2).toUpperCase()}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-fg truncate">{cs.label || cs.email}</p>
+                      <p className="text-xs text-fg-subtle truncate">{cs.email}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs font-medium text-primary">{cs.total} email{cs.total !== 1 ? "s" : ""}</span>
+                        {cs.pending > 0 && <span className="text-xs text-warning">{cs.pending} pending</span>}
+                        {cs.latest && <span className="text-xs text-fg-subtle">Last: {formatDate(cs.latest)}</span>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {personFilter && (
+            <button onClick={() => setPersonFilter(null)} className="text-xs text-primary hover:underline">
+              Clear filter — showing only {personFilter.label}
+            </button>
+          )}
         </div>
       )}
 

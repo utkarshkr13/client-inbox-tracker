@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import ClientEmailManager from "@/components/ClientEmailManager";
+import TeamMembersManager from "@/components/TeamMembersManager";
 import ProjectSettingsClient from "@/components/ProjectSettingsClient";
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -11,11 +12,16 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   if (!session.isLoggedIn) redirect("/login");
   const userId = session.userId!;
 
-  const [project, slaConfig, clientProfiles, gmailToken] = await Promise.all([
+  const [project, slaConfig, clientProfiles, gmailToken, teamMembers] = await Promise.all([
     prisma.project.findUnique({ where: { id, userId }, include: { clientEmails: true } }),
     prisma.slaConfig.findUnique({ where: { projectId: id } }),
     prisma.clientProfile.findMany({ where: { projectId: id } }),
     prisma.gmailToken.findUnique({ where: { userId } }),
+    prisma.teamMember.findMany({
+      where: { projectId: id },
+      include: { gmailToken: { select: { gmailEmail: true, updatedAt: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   if (!project) notFound();
@@ -34,6 +40,8 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
       </div>
 
       <ClientEmailManager projectId={id} clientEmails={project.clientEmails} />
+
+      <TeamMembersManager projectId={id} initialMembers={JSON.parse(JSON.stringify(teamMembers))} />
 
       <ProjectSettingsClient
         projectId={id}

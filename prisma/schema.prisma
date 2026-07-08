@@ -21,8 +21,42 @@ model Project {
   slaConfig      SlaConfig?
   clientProfiles ClientProfile[]
   templates      ResponseTemplate[]
+  teamMembers    TeamMember[]
 
   @@index([userId])
+}
+
+// A person on the project besides the primary BA (usually L2 support).
+// Optionally connects their own Gmail so emails sent only to them —
+// never CC'd to the BA — are still visible instead of silently missed.
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  name      String
+  email     String
+  role      String   @default("l2") // "ba" | "l2"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project    Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gmailToken TeamMemberGmailToken?
+
+  @@unique([projectId, email])
+  @@index([projectId])
+}
+
+model TeamMemberGmailToken {
+  id           String   @id @default(cuid())
+  teamMemberId String   @unique
+  accessToken  String
+  refreshToken String?
+  expiryDate   BigInt?
+  gmailEmail   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
 }
 
 model ClientEmail {
@@ -54,6 +88,11 @@ model EmailStatus {
   hasAttachments  Boolean   @default(false)
   toEmails        String?   // comma-separated To recipients from Gmail headers
   ccEmails        String?   // comma-separated CC recipients from Gmail headers
+  messageIdHeader String?   // RFC822 Message-ID — stable across mailboxes, used to dedup
+                             // the same email when it's seen via two connected accounts
+  seenVia         String?   // email address of the connected mailbox that ingested this row —
+                             // powers "tap a person, see their queue" since routingTier alone
+                             // can't distinguish between multiple L2 people
   receivedAt      DateTime?
   followUpAt      DateTime?
   escalationNote  String?

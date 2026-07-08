@@ -1,7 +1,8 @@
-import LogoutButton from "@/components/LogoutButton";
+import UserMenu from "@/components/UserMenu";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -36,8 +37,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="font-semibold text-sm text-fg">Inbox Tracker</span>
           </div>
 
+          <NotificationBell />
           <ThemeToggle />
-          <LogoutButton />
+          <UserMenu name={session.name ?? null} email={session.email ?? null} />
         </header>
 
         <main className="flex-1 px-4 md:px-8 py-6 md:py-8 max-w-6xl w-full mx-auto pb-24 md:pb-12">

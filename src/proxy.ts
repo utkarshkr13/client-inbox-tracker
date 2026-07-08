@@ -4,7 +4,7 @@ import { getIronSession } from "iron-session";
 import type { SessionData } from "@/lib/session";
 import { sessionOptions } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/", "/login", "/api/auth/login", "/api/gmail/connect", "/api/gmail/callback"];
+const PUBLIC_PATHS = ["/", "/login", "/api/auth/login", "/api/gmail/connect", "/api/gmail/callback", "/api/team/gmail-connect", "/api/team/gmail-callback", "/team-connected"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
