@@ -152,7 +152,7 @@ export default async function DigestPage() {
           <div className="space-y-2">
             {followUpsDue.map((e) => (
               <Link key={e.id} href={`/dashboard/projects/${e.projectId}`}>
-                <div className="bg-bg-elev border border-warning/20 rounded-lg p-3 hover:border-amber-300 transition cursor-pointer">
+                <div className="bg-bg-elev border border-warning/20 rounded-lg p-3 hover:border-warning/40 transition cursor-pointer">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-warning font-medium">{e.project.name}</span>
                     <span className="text-xs text-danger font-medium">Due: {formatDate(e.followUpAt)}</span>
@@ -194,7 +194,7 @@ export default async function DigestPage() {
           {projects.map((p) => (
             <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
               <div className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/25 hover:bg-primary-soft/30 transition cursor-pointer">
-                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 bg-primary-soft rounded-lg flex items-center justify-center flex-shrink-0">
                   <span className="text-primary font-bold text-xs">{p.name.slice(0, 2).toUpperCase()}</span>
                 </div>
                 <div className="min-w-0">

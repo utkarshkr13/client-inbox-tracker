@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 type SearchResult = {
@@ -21,24 +21,48 @@ type SearchResult = {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-warning-soft text-warning",
-  done: "bg-success-soft text-emerald-700",
+  done: "bg-success-soft text-success",
   dismissed: "bg-bg-muted text-fg-muted",
   escalated: "bg-danger-soft text-danger",
 };
 
+const RECENT_KEY = "cit-recent-searches";
+
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
 
-  async function doSearch() {
-    if (!query.trim()) return;
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+      if (Array.isArray(stored)) setRecent(stored.slice(0, 5));
+    } catch {}
+  }, []);
+
+  function rememberQuery(q: string) {
+    try {
+      const next = [q, ...recent.filter((r) => r !== q)].slice(0, 5);
+      setRecent(next);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
+  async function doSearch(qOverride?: string) {
+    const q = (qOverride ?? query).trim();
+    if (!q) return;
+    if (qOverride) setQuery(qOverride);
     setLoading(true);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      setResults(await res.json());
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setResults(data.results ?? []);
+      setTotalCount(data.totalCount ?? 0);
       setSearched(true);
+      rememberQuery(q);
     } finally { setLoading(false); }
   }
 
@@ -60,11 +84,31 @@ export default function SearchPage() {
           className="flex-1 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-bg-elev"
           autoFocus
         />
-        <button onClick={doSearch} disabled={loading || !query.trim()}
+        <button onClick={() => doSearch()} disabled={loading || !query.trim()}
           className="bg-primary text-primary-fg px-5 py-3 rounded-xl hover:bg-primary/90 transition font-medium text-sm disabled:opacity-50">
           {loading ? "…" : "Search"}
         </button>
       </div>
+
+      {!searched && (
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3">🔍</div>
+          <p className="text-sm text-fg-muted">Search across every synced email — subject, sender name, sender address, or snippet text.</p>
+          {recent.length > 0 && (
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <p className="text-xs text-fg-subtle">Recent searches</p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-md">
+                {recent.map((r) => (
+                  <button key={r} onClick={() => doSearch(r)}
+                    className="text-xs bg-bg-muted text-fg-muted px-3 py-1.5 rounded-full hover:bg-primary-soft hover:text-primary transition">
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {searched && results.length === 0 && (
         <div className="text-center py-16 text-fg-subtle">No results for "{query}"</div>
@@ -72,7 +116,10 @@ export default function SearchPage() {
 
       {results.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-fg-subtle">{results.length} result{results.length !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-fg-subtle">
+            {totalCount} result{totalCount !== 1 ? "s" : ""}
+            {totalCount > results.length && ` — showing first ${results.length}, refine your search to narrow down`}
+          </p>
           {results.map((r) => (
             <Link key={r.id} href={`/dashboard/projects/${r.projectId}`}>
               <div className="bg-bg-elev border border-border rounded-xl p-4 hover:border-primary/25 hover:shadow-sm transition cursor-pointer group">

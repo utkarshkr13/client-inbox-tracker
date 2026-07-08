@@ -115,11 +115,11 @@ export default function TemplatesPage() {
                     </div>
                     <div className="flex gap-1.5 flex-shrink-0">
                       <button onClick={() => copy(t)}
-                        className={`text-xs px-3 py-1.5 rounded-lg border transition ${copiedId === t.id ? "bg-success-soft text-emerald-700 border-success/25" : "border-border text-fg-muted hover:bg-primary-soft hover:border-primary/25 hover:text-primary"}`}>
+                        className={`text-xs px-3 py-1.5 rounded-lg border transition ${copiedId === t.id ? "bg-success-soft text-success border-success/25" : "border-border text-fg-muted hover:bg-primary-soft hover:border-primary/25 hover:text-primary"}`}>
                         {copiedId === t.id ? "✓ Copied" : "Copy"}
                       </button>
                       <button onClick={() => startEdit(t)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-fg-muted hover:bg-bg-muted">Edit</button>
-                      <button onClick={() => deleteTemplate(t.id)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-red-400 hover:bg-danger-soft hover:border-danger/25">Delete</button>
+                      <button onClick={() => deleteTemplate(t.id)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-danger hover:bg-danger-soft hover:border-danger/25">Delete</button>
                     </div>
                   </div>
                 </div>

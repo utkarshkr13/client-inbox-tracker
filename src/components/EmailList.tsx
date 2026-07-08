@@ -234,7 +234,7 @@ function EmailRow({
           checked={selected} onChange={(e) => onSelect(email.gmailMessageId, e.target.checked)} onClick={(e) => e.stopPropagation()} />
         <div className="mt-1.5 flex-shrink-0 cursor-pointer" onClick={toggleExpand}>
           {isPending && <span className="inline-block w-2 h-2 rounded-full bg-warning" />}
-          {isDone && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />}
+          {isDone && <span className="inline-block w-2 h-2 rounded-full bg-success" />}
           {isDismissed && <span className="inline-block w-2 h-2 rounded-full bg-border-strong" />}
           {isEscalated && <span className="inline-block w-2 h-2 rounded-full bg-danger" />}
         </div>
@@ -346,7 +346,7 @@ function EmailRow({
               <div className="flex gap-2">
                 <input type="text" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} placeholder="Add a note…"
                   onKeyDown={(e) => e.key === "Enter" && saveNote()}
-                  className="flex-1 text-xs border border-warning/25 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-bg-elev" />
+                  className="flex-1 text-xs border border-warning/25 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-warning/50 bg-bg-elev" />
                 <button onClick={saveNote} disabled={noteSaving || !noteInput.trim()}
                   className="text-xs bg-warning text-white px-3 py-1.5 rounded-lg hover:bg-warning/90 disabled:opacity-50">Add</button>
               </div>
@@ -728,7 +728,7 @@ export default function EmailList({
           <button onClick={() => bulkAction("status", "dismissed")} disabled={bulkActionLoading} className="text-xs bg-fg-muted text-bg px-3 py-1.5 rounded-lg hover:bg-fg/90">Dismiss</button>
           <button onClick={() => bulkAction("status", "pending")} disabled={bulkActionLoading} className="text-xs bg-warning text-white px-3 py-1.5 rounded-lg hover:bg-warning/90">Pending</button>
           <button onClick={() => bulkAction("route", "l2")} disabled={bulkActionLoading} className="text-xs bg-warning-soft text-warning border border-warning/25 px-3 py-1.5 rounded-lg hover:bg-warning-soft">→ L2</button>
-          <button onClick={() => bulkAction("route", "ba")} disabled={bulkActionLoading} className="text-xs bg-indigo-100 text-primary border border-primary/25 px-3 py-1.5 rounded-lg hover:bg-primary-soft">→ BA</button>
+          <button onClick={() => bulkAction("route", "ba")} disabled={bulkActionLoading} className="text-xs bg-primary-soft text-primary border border-primary/25 px-3 py-1.5 rounded-lg hover:bg-primary-soft">→ BA</button>
           <button onClick={() => setSelected(new Set())} className="text-xs text-fg-muted hover:text-fg ml-auto">✕ Clear</button>
         </div>
       )}
