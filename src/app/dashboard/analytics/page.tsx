@@ -121,11 +121,11 @@ export default async function AnalyticsPage() {
         <h2 className="text-sm font-semibold text-fg mb-3">BA vs L2 Routing</h2>
         <div className="flex items-center gap-4">
           <div className="flex-1 bg-bg-muted rounded-full h-4 overflow-hidden flex">
-            <div className="bg-indigo-500 h-full" style={{ width: `${total > 0 ? ((byRouting.ba ?? 0) / total) * 100 : 0}%` }} title={`BA: ${byRouting.ba ?? 0}`} />
+            <div className="bg-primary h-full" style={{ width: `${total > 0 ? ((byRouting.ba ?? 0) / total) * 100 : 0}%` }} title={`BA: ${byRouting.ba ?? 0}`} />
             <div className="bg-warning h-full" style={{ width: `${total > 0 ? ((byRouting.l2 ?? 0) / total) * 100 : 0}%` }} title={`L2: ${byRouting.l2 ?? 0}`} />
           </div>
           <div className="flex items-center gap-3 text-xs flex-shrink-0">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-indigo-500 rounded-full inline-block" /> BA: {byRouting.ba ?? 0}</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-primary rounded-full inline-block" /> BA: {byRouting.ba ?? 0}</span>
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-warning rounded-full inline-block" /> L2: {byRouting.l2 ?? 0}</span>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default async function AnalyticsPage() {
               <div key={pId} className="flex items-center gap-3">
                 <Link href={`/dashboard/projects/${pId}`} className="text-xs text-primary hover:underline w-32 truncate">{proj?.name ?? pId}</Link>
                 <div className="flex-1 bg-bg-muted rounded-full h-2.5 overflow-hidden">
-                  <div className="bg-indigo-400 h-full rounded-full" style={{ width: `${(count / total) * 100}%` }} />
+                  <div className="bg-primary h-full rounded-full" style={{ width: `${(count / total) * 100}%` }} />
                 </div>
                 <span className="text-xs font-semibold text-fg w-6 text-right">{count}</span>
               </div>

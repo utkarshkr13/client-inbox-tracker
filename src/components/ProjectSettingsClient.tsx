@@ -15,7 +15,7 @@ type ClientProfile = {
 };
 
 const RISK_COLORS: Record<string, string> = {
-  green: "bg-success-soft text-emerald-700 border-success/25",
+  green: "bg-success-soft text-success border-success/25",
   amber: "bg-warning-soft text-warning border-warning/25",
   red: "bg-danger-soft text-danger border-danger/25",
 };
@@ -119,7 +119,7 @@ export default function ProjectSettingsClient({
         <div className="bg-bg-muted border border-border rounded-xl p-4 text-xs space-y-2 text-fg-muted">
           <p className="font-semibold text-fg mb-1">How routing works:</p>
           <div className="flex items-start gap-2">
-            <span className="text-indigo-500 font-bold mt-0.5">▸</span>
+            <span className="text-primary font-bold mt-0.5">▸</span>
             <span><strong>Scenario 1 — Email TO the BA</strong> (L2 in CC or not present): BA is responsible first. L2 is looped in but BA leads.</span>
           </div>
           <div className="flex items-start gap-2">
@@ -150,7 +150,7 @@ export default function ProjectSettingsClient({
               className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             {detectedBaEmail && detectedBaEmail !== baEmail && (
-              <button onClick={() => setBaEmail(detectedBaEmail)} className="text-xs text-indigo-500 hover:underline mt-1">
+              <button onClick={() => setBaEmail(detectedBaEmail)} className="text-xs text-primary hover:underline mt-1">
                 Use connected Gmail: {detectedBaEmail}
               </button>
             )}

@@ -11,26 +11,31 @@ export async function GET(req: Request) {
   const q = url.searchParams.get("q")?.trim() ?? "";
   const projectId = url.searchParams.get("projectId");
 
-  if (!q) return NextResponse.json([]);
+  if (!q) return NextResponse.json({ results: [], totalCount: 0 });
 
-  const results = await prisma.emailStatus.findMany({
-    where: {
-      userId,
-      ...(projectId ? { projectId } : {}),
-      OR: [
-        { subject: { contains: q, mode: "insensitive" } },
-        { snippet: { contains: q, mode: "insensitive" } },
-        { fromEmail: { contains: q, mode: "insensitive" } },
-        { fromName: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    orderBy: { receivedAt: "desc" },
-    take: 50,
-    include: {
-      project: { select: { name: true } },
-      emailTags: { include: { tag: true } },
-    },
-  });
+  const where = {
+    userId,
+    ...(projectId ? { projectId } : {}),
+    OR: [
+      { subject: { contains: q, mode: "insensitive" as const } },
+      { snippet: { contains: q, mode: "insensitive" as const } },
+      { fromEmail: { contains: q, mode: "insensitive" as const } },
+      { fromName: { contains: q, mode: "insensitive" as const } },
+    ],
+  };
 
-  return NextResponse.json(results);
+  const [results, totalCount] = await Promise.all([
+    prisma.emailStatus.findMany({
+      where,
+      orderBy: { receivedAt: "desc" },
+      take: 50,
+      include: {
+        project: { select: { name: true } },
+        emailTags: { include: { tag: true } },
+      },
+    }),
+    prisma.emailStatus.count({ where }),
+  ]);
+
+  return NextResponse.json({ results, totalCount });
 }
