@@ -72,6 +72,21 @@ Automatically determines the correct responder based on Gmail To/CC fields:
 
 ---
 
+## Dashboard UI/UX Refinements
+
+Changes merged across several PRs since the initial 2026-05-24 write-up, most recently PR #10 (merged 2026-07-09).
+
+- **Chart interpolation** — the activity chart on the dashboard now draws its line with monotone cubic (Fritsch-Carlson) interpolation instead of naive Catmull-Rom, so the curve no longer overshoots or undershoots past actual data points.
+- **Range tabs** — the chart has functional 7d / 30d / 90d tabs. All three are backed by real aggregated data: a single 90-day superset query is fetched once and bucketed client-side per range, not mocked or re-queried per tab.
+- **Chart tooltips** — hovering a point on the chart shows a tooltip with the day label and the real Total/Pending counts for that day, along with a vertical guide line at the hovered position.
+- **Animated KPIs** — the Pending, Resolved, Escalated, and L2 queue counts, plus the chart total, animate via a `CountUp` component whenever their underlying value changes.
+- **Project card accents** — each project card has a full-card diagonal gradient accent, cycled per card, built from the app's existing HSL design-token system (`--primary`, `--warning`, `--danger`, `--info` soft variants) rather than hardcoded colors, so it adapts correctly in dark mode.
+- **Priority queue banner** — the dashboard banner that surfaces the project needing the most attention (ranked by escalations + pending backlog) uses an icon-in-circle-badge with a two-line eyebrow/label layout.
+- **Entrance animations** — dashboard elements fade up with a staggered entrance animation that respects `prefers-reduced-motion`.
+- All of the above is driven by real Prisma-backed data — there is no fabricated or decorative data anywhere in the dashboard UI (e.g. no fake "live sync" freshness timestamps).
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
