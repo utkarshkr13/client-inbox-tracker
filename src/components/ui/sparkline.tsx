@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 
 interface SparklineProps {
@@ -62,7 +65,7 @@ function monotonePath(points: [number, number][]): string {
   return path;
 }
 
-/** Smooth gradient-filled line chart for 3-7 day activity trends. */
+/** Smooth gradient-filled line chart for 3-7 day activity trends, with hover tooltip. */
 export function Sparkline({ data, height = 120, className }: SparklineProps) {
   const W = 300;
   const H = height;
@@ -70,6 +73,7 @@ export function Sparkline({ data, height = 120, className }: SparklineProps) {
   const hasSub = data.some((d) => d.sub != null);
   const max = Math.max(...data.map((d) => d.value), 1);
   const stepX = data.length > 1 ? W / (data.length - 1) : 0;
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const toPoints = (key: "value" | "sub"): [number, number][] =>
     data.map((d, i) => {
@@ -89,10 +93,18 @@ export function Sparkline({ data, height = 120, className }: SparklineProps) {
     : "";
 
   const gradientId = "sparkline-fill";
+  const hovered = hoverIdx != null ? data[hoverIdx] : null;
+  const hoverPoint = hoverIdx != null ? points[hoverIdx] : null;
 
   return (
-    <div className={cn("w-full", className)}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }} preserveAspectRatio="none">
+    <div className={cn("w-full relative", className)}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full overflow-visible"
+        style={{ height }}
+        preserveAspectRatio="none"
+        onMouseLeave={() => setHoverIdx(null)}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
@@ -106,18 +118,68 @@ export function Sparkline({ data, height = 120, className }: SparklineProps) {
         {linePath && (
           <path d={linePath} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         )}
+        {hoverPoint && (
+          <line x1={hoverPoint[0]} y1={0} x2={hoverPoint[0]} y2={H} stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="3 3" />
+        )}
         {points.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="3" fill="hsl(var(--primary))" stroke="hsl(var(--bg-elev))" strokeWidth="1.5">
-            <title>{`${data[i].label}: ${data[i].value}${data[i].sub != null ? ` (${data[i].sub} pending)` : ""}`}</title>
-          </circle>
+          <g key={i}>
+            {/* Wide invisible hit target makes hovering easy even between rendered dots. */}
+            <rect
+              x={i === 0 ? 0 : (x + points[i - 1][0]) / 2}
+              y={0}
+              width={
+                (i === 0 ? (points[1]?.[0] ?? W) - x : i === points.length - 1 ? W - (x + points[i - 1][0]) / 2 : (points[i + 1][0] - points[i - 1][0]) / 2)
+              }
+              height={H}
+              fill="transparent"
+              onMouseEnter={() => setHoverIdx(i)}
+            />
+            <circle
+              cx={x}
+              cy={y}
+              r={hoverIdx === i ? 4.5 : 3}
+              fill="hsl(var(--primary))"
+              stroke="hsl(var(--bg-elev))"
+              strokeWidth="1.5"
+              className="transition-all duration-150"
+            >
+              <title>{`${data[i].label}: ${data[i].value}${data[i].sub != null ? ` (${data[i].sub} pending)` : ""}`}</title>
+            </circle>
+          </g>
         ))}
         {hasSub && subPoints.map(([x, y], i) => (
           <circle key={`sub-${i}`} cx={x} cy={y} r="2" fill="hsl(var(--warning))" stroke="hsl(var(--bg-elev))" strokeWidth="1.25" />
         ))}
       </svg>
+
+      {hovered && hoverPoint && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full bg-bg-elev border border-border rounded-lg shadow-lg px-2.5 py-1.5 text-xs whitespace-nowrap"
+          style={{
+            left: `${(hoverPoint[0] / W) * 100}%`,
+            top: `${Math.max((hoverPoint[1] / H) * 100 - 6, 0)}%`,
+          }}
+        >
+          <p className="font-semibold text-fg">{hovered.label}</p>
+          <p className="text-fg-muted">
+            Total <span className="font-medium text-fg tabular-nums">{hovered.value}</span>
+            {hovered.sub != null && (
+              <>
+                {" · "}Pending <span className="font-medium text-warning tabular-nums">{hovered.sub}</span>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       <div className="flex items-end gap-1.5 mt-1">
-        {data.map((d) => (
-          <div key={d.label} className="flex-1 text-center">
+        {data.map((d, i) => (
+          <div
+            key={d.label}
+            className={cn("flex-1 text-center transition-colors", hoverIdx === i && "text-fg")}
+            onMouseEnter={() => setHoverIdx(i)}
+            onMouseLeave={() => setHoverIdx(null)}
+          >
             <p className="text-[10px] text-fg-subtle">{d.label}</p>
             <p className="text-xs font-semibold text-fg tabular-nums">{d.value}</p>
           </div>
