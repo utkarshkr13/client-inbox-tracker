@@ -12,15 +12,17 @@ type Project = {
   _count: { emailStatuses: number };
 };
 
-// Soft top-down accent washes, cycled by card position so a grid of
+// Full-card diagonal accent washes, cycled by card position so a grid of
 // projects reads as a set rather than a wall of identical white tiles.
-// Each entry must be a literal Tailwind class string (not built from
-// template interpolation) so the JIT scanner picks it up.
+// Built from the existing token system (not hardcoded hex) so they adapt
+// automatically to light/dark mode. Each entry must be a literal Tailwind
+// class string (not built from template interpolation) so the JIT scanner
+// picks it up.
 const ACCENT_WASHES = [
-  "from-primary-soft/60",
-  "from-warning-soft/60",
-  "from-danger-soft/45",
-  "from-info-soft/60",
+  "bg-gradient-to-br from-primary-soft/70 via-bg-elev to-bg-elev",
+  "bg-gradient-to-br from-warning-soft/70 via-bg-elev to-bg-elev",
+  "bg-gradient-to-br from-danger-soft/55 via-bg-elev to-bg-elev",
+  "bg-gradient-to-br from-info-soft/70 via-bg-elev to-bg-elev",
 ];
 
 export default function ProjectCard({
@@ -67,10 +69,8 @@ export default function ProjectCard({
   return (
     <Link
       href={`/dashboard/projects/${project.id}`}
-      className="group relative bg-bg-elev border border-border rounded-xl p-5 overflow-hidden hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className={`group relative ${wash} border border-border rounded-xl p-5 overflow-hidden hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
     >
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${wash} to-transparent`} />
-
       <button
         onClick={deleteProject}
         className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-md text-fg-subtle hover:text-danger hover:bg-danger-soft transition opacity-0 group-hover:opacity-100"

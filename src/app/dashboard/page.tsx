@@ -192,20 +192,27 @@ export default async function DashboardPage() {
       ) : priorityProject ? (
         <Link
           href={`/dashboard/projects/${priorityProject.project.id}`}
-          className="flex items-center justify-between bg-gradient-to-r from-warning-soft to-danger-soft border border-warning/20 rounded-lg px-4 py-3 text-sm font-medium hover:border-warning/40 transition group"
+          className="flex items-center justify-between gap-4 bg-gradient-to-r from-warning-soft to-danger-soft border border-warning/20 rounded-lg px-4 py-3 hover:border-warning/40 transition group"
         >
-          <span className="text-fg inline-flex items-center gap-2">
-            <Flame className="w-4 h-4 text-warning shrink-0" />
-            Start with <span className="font-semibold">{priorityProject.project.name}</span> —{" "}
-            {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (
-              <span className="text-danger font-semibold">{statusMap[priorityProject.project.id].escalated} escalated</span>
-            )}
-            {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && ", "}
-            {(statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && (
-              <span className="text-warning font-semibold">{statusMap[priorityProject.project.id].pending} pending</span>
-            )}
+          <span className="inline-flex items-center gap-3 min-w-0">
+            <span className="w-11 h-11 rounded-xl bg-warning/20 flex items-center justify-center shrink-0">
+              <Flame className="w-5 h-5 text-warning" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-semibold tracking-widest text-fg-subtle uppercase">Priority queue</span>
+              <span className="block text-sm font-medium text-fg truncate">
+                Start with <span className="font-semibold">{priorityProject.project.name}</span> —{" "}
+                {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (
+                  <span className="text-danger font-semibold">{statusMap[priorityProject.project.id].escalated} escalated</span>
+                )}
+                {(statusMap[priorityProject.project.id]?.escalated ?? 0) > 0 && (statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && ", "}
+                {(statusMap[priorityProject.project.id]?.pending ?? 0) > 0 && (
+                  <span className="text-warning font-semibold">{statusMap[priorityProject.project.id].pending} pending</span>
+                )}
+              </span>
+            </span>
           </span>
-          <span className="text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all shrink-0">
+          <span className="text-primary text-sm font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all shrink-0">
             Open <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </Link>
