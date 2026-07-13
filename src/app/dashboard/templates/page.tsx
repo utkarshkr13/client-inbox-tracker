@@ -95,7 +95,7 @@ export default function TemplatesPage() {
       {!loading && templates.length === 0 && !showForm && (
         <div className="text-center py-16">
           <p className="text-sm text-fg-muted">No templates yet — create one to speed up common replies.</p>
-          <button onClick={() => setShowForm(true)}
+          <button onClick={() => { setShowForm(true); setEditId(null); setName(""); setBody(""); setCategory("General"); }}
             className="mt-3 text-sm text-primary hover:underline font-medium">
             + New Template
           </button>
