@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { StatCard } from "@/components/ui/card";
+import { CountUp } from "@/components/ui/count-up";
+import { Mail, Clock, CheckCircle2, XCircle, AlertOctagon, Users } from "lucide-react";
 
 type Tag = { id: string; name: string; color: string };
 type Note = { id: string; content: string; createdAt: string | Date; userId: string };
@@ -579,20 +582,13 @@ export default function EmailList({
   return (
     <div className="space-y-5">
       {/* KPI strip */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {[
-          { label: "Total", value: totalCount, cls: "bg-bg-elev border-border text-fg" },
-          { label: "Pending", value: pendingCount, cls: "bg-warning-soft border-warning/20 text-warning" },
-          { label: "Done", value: doneCount, cls: "bg-success-soft border-success/20 text-success" },
-          { label: "Dismissed", value: dismissedCount, cls: "bg-bg-muted border-border text-fg-subtle" },
-          { label: "Escalated", value: escalatedCount, cls: "bg-danger-soft border-danger/20 text-danger" },
-          { label: "L2 Queue", value: l2Count, cls: "bg-warning-soft border-warning/20 text-warning" },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className={`border rounded-xl p-3 text-center ${cls}`}>
-            <p className="text-xl font-bold">{value}</p>
-            <p className="text-xs mt-0.5 opacity-70">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 stagger">
+        <StatCard label="Total" value={<CountUp value={totalCount} />} accent="default" icon={<Mail className="w-3.5 h-3.5" />} />
+        <StatCard label="Pending" value={<CountUp value={pendingCount} />} accent="warning" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Done" value={<CountUp value={doneCount} />} accent="success" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+        <StatCard label="Dismissed" value={<CountUp value={dismissedCount} />} accent="default" icon={<XCircle className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={<CountUp value={escalatedCount} />} accent="danger" icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="L2 Queue" value={<CountUp value={l2Count} />} accent="warning" icon={<Users className="w-3.5 h-3.5" />} />
       </div>
 
       {/* BA/L2 routing strip */}
