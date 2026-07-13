@@ -140,11 +140,12 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="anim-fade-up">
         <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg inline-flex items-center gap-1">
           <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
         </Link>
-        <h1 className="text-2xl font-bold text-fg mt-2">Settings</h1>
+        <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mt-2 mb-1">Settings</p>
+        <h1 className="text-2xl font-bold text-fg">Settings</h1>
         <p className="text-sm text-fg-muted mt-0.5">Account, tags, webhooks, and project templates</p>
       </div>
 
@@ -160,7 +161,7 @@ export default function SettingsPage() {
 
       {/* Account tab */}
       {activeTab === "account" && (
-        <Card className="p-5">
+        <Card key="account" className="p-5 anim-fade-up">
           <h2 className="text-sm font-semibold text-fg mb-1">Gmail connection</h2>
           <p className="text-xs text-fg-muted mb-4">
             Your inbox was connected during sign-in. Reconnect here if syncing stops working, or disconnect to revoke access.
@@ -211,7 +212,7 @@ export default function SettingsPage() {
 
       {/* Tags tab */}
       {activeTab === "tags" && (
-        <div className="space-y-4">
+        <div key="tags" className="space-y-4 anim-fade-up">
           <Card className="p-5">
             <h2 className="text-sm font-semibold text-fg mb-4">Create tag</h2>
             <div className="flex items-center gap-3 flex-wrap">
@@ -250,7 +251,7 @@ export default function SettingsPage() {
 
       {/* Webhooks tab */}
       {activeTab === "webhooks" && (
-        <Card className="p-5 space-y-4">
+        <Card key="webhooks" className="p-5 space-y-4 anim-fade-up">
           <div>
             <h2 className="text-sm font-semibold text-fg mb-1">Webhook URL</h2>
             <p className="text-xs text-fg-muted mb-3">Send a POST request to this URL when events occur. Works with Slack webhooks, Make, Zapier, etc.</p>
@@ -291,7 +292,7 @@ export default function SettingsPage() {
 
       {/* Project Templates tab */}
       {activeTab === "templates" && (
-        <div className="space-y-4">
+        <div key="templates" className="space-y-4 anim-fade-up">
           <Card className="p-5 space-y-3">
             <h2 className="text-sm font-semibold text-fg">Create project template</h2>
             <p className="text-xs text-fg-muted">Save a project configuration to reuse when creating new projects.</p>
@@ -332,7 +333,7 @@ export default function SettingsPage() {
 
       {/* Developer tab */}
       {activeTab === "developer" && (
-        <Card className="p-5 space-y-4">
+        <Card key="developer" className="p-5 space-y-4 anim-fade-up">
           <div>
             <h2 className="text-sm font-semibold text-fg mb-1 flex items-center gap-2">
               <FlaskConical className="w-4 h-4 text-primary" /> QA Sandbox

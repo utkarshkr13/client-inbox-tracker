@@ -33,9 +33,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="anim-fade-up">
           <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Projects</Link>
-          <h1 className="text-2xl font-bold text-fg mt-1">{project.name}</h1>
+          <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mt-1 mb-1">Project</p>
+          <h1 className="text-2xl font-bold text-fg">{project.name}</h1>
           <p className="text-sm text-fg-subtle mt-0.5">
             {project.clientEmails.length} client email{project.clientEmails.length !== 1 ? "s" : ""}
             {emailStatuses.length > 0 && <span className="ml-2 text-fg-subtle">· {emailStatuses.length} total synced</span>}

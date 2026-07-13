@@ -56,10 +56,11 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between anim-fade-up">
         <div>
           <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Dashboard</Link>
-          <h1 className="text-2xl font-bold text-fg mt-1">Response Templates</h1>
+          <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mt-1 mb-1">Templates</p>
+          <h1 className="text-2xl font-bold text-fg">Response Templates</h1>
           <p className="text-sm text-fg-subtle mt-0.5">Pre-built replies for common queries. Click any template to copy to clipboard.</p>
         </div>
         <button onClick={() => { setShowForm(!showForm); setEditId(null); setName(""); setBody(""); setCategory("General"); }}
@@ -92,13 +93,17 @@ export default function TemplatesPage() {
       {loading && <div className="text-fg-subtle text-sm">Loading templates…</div>}
 
       {!loading && templates.length === 0 && !showForm && (
-        <div className="text-center py-16 text-fg-subtle">
-          <p className="text-sm">No templates yet.</p>
-          <p className="text-xs mt-1">Create your first template to speed up L2 responses.</p>
+        <div className="text-center py-16">
+          <p className="text-sm text-fg-muted">No templates yet — create one to speed up common replies.</p>
+          <button onClick={() => { setShowForm(true); setEditId(null); setName(""); setBody(""); setCategory("General"); }}
+            className="mt-3 text-sm text-primary hover:underline font-medium">
+            + New Template
+          </button>
         </div>
       )}
 
       {/* Templates grouped by category */}
+      <div className="space-y-6 stagger">
       {CATEGORIES.map((cat) => {
         const catTemplates = templates.filter((t) => t.category === cat);
         if (catTemplates.length === 0) return null;
@@ -128,6 +133,7 @@ export default function TemplatesPage() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

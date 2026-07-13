@@ -2,6 +2,9 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { StatCard } from "@/components/ui/card";
+import { CountUp } from "@/components/ui/count-up";
+import { Mail, Clock, AlertOctagon, Timer } from "lucide-react";
 
 export default async function AnalyticsPage() {
   const session = await getSession();
@@ -59,30 +62,24 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between anim-fade-up">
         <div>
           <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Dashboard</Link>
-          <h1 className="text-2xl font-bold text-fg mt-1">Analytics</h1>
+          <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mt-1 mb-1">Analytics</p>
+          <h1 className="text-2xl font-bold text-fg">Analytics</h1>
           <p className="text-sm text-fg-subtle mt-0.5">Last 30 days · {total} emails</p>
         </div>
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total", value: total, cls: "text-fg bg-bg-elev" },
-          { label: "Pending", value: byStatus.pending ?? 0, cls: "text-warning bg-warning-soft" },
-          { label: "Escalated", value: byStatus.escalated ?? 0, cls: "text-danger bg-danger-soft" },
-          { label: "Avg resolution", value: `${Math.round(avgResolutionHours)}h`, cls: "text-primary bg-primary-soft" },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className={`border border-border rounded-xl p-4 text-center ${cls}`}>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-xs text-fg-subtle mt-1">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger">
+        <StatCard label="Total" value={<CountUp value={total} />} accent="default" icon={<Mail className="w-3.5 h-3.5" />} />
+        <StatCard label="Pending" value={<CountUp value={byStatus.pending ?? 0} />} accent="warning" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={<CountUp value={byStatus.escalated ?? 0} />} accent="danger" icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="Avg resolution" value={<><CountUp value={Math.round(avgResolutionHours)} />h</>} accent="primary" icon={<Timer className="w-3.5 h-3.5" />} />
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4 stagger">
         {/* Status breakdown */}
         <div className="bg-bg-elev border border-border rounded-xl p-5">
           <h2 className="text-sm font-semibold text-fg mb-4">Status Breakdown</h2>

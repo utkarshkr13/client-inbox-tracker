@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { StatCard } from "@/components/ui/card";
+import { CountUp } from "@/components/ui/count-up";
+import { Mail, Clock, CheckCircle2, XCircle, AlertOctagon, Users } from "lucide-react";
+import { ACCENT_WASHES } from "@/components/ProjectCard";
 
 type Tag = { id: string; name: string; color: string };
 type Note = { id: string; content: string; createdAt: string | Date; userId: string };
@@ -579,20 +583,13 @@ export default function EmailList({
   return (
     <div className="space-y-5">
       {/* KPI strip */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {[
-          { label: "Total", value: totalCount, cls: "bg-bg-elev border-border text-fg" },
-          { label: "Pending", value: pendingCount, cls: "bg-warning-soft border-warning/20 text-warning" },
-          { label: "Done", value: doneCount, cls: "bg-success-soft border-success/20 text-success" },
-          { label: "Dismissed", value: dismissedCount, cls: "bg-bg-muted border-border text-fg-subtle" },
-          { label: "Escalated", value: escalatedCount, cls: "bg-danger-soft border-danger/20 text-danger" },
-          { label: "L2 Queue", value: l2Count, cls: "bg-warning-soft border-warning/20 text-warning" },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className={`border rounded-xl p-3 text-center ${cls}`}>
-            <p className="text-xl font-bold">{value}</p>
-            <p className="text-xs mt-0.5 opacity-70">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 stagger">
+        <StatCard label="Total" value={<CountUp value={totalCount} />} accent="default" icon={<Mail className="w-3.5 h-3.5" />} />
+        <StatCard label="Pending" value={<CountUp value={pendingCount} />} accent="warning" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Done" value={<CountUp value={doneCount} />} accent="success" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+        <StatCard label="Dismissed" value={<CountUp value={dismissedCount} />} accent="default" icon={<XCircle className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={<CountUp value={escalatedCount} />} accent="danger" icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="L2 Queue" value={<CountUp value={l2Count} />} accent="warning" icon={<Users className="w-3.5 h-3.5" />} />
       </div>
 
       {/* BA/L2 routing strip */}
@@ -610,14 +607,14 @@ export default function EmailList({
       {(teamStats.length > 0 || clientStats.length > 0) && (
         <div className="space-y-2">
           {teamStats.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {teamStats.map((tm) => {
+            <div className="flex flex-wrap gap-2 stagger">
+              {teamStats.map((tm, i) => {
                 const active = personFilter?.type === "seenVia" && personFilter.value.toLowerCase() === tm.matchEmail.toLowerCase();
                 return (
                   <button
                     key={tm.id}
                     onClick={() => setPersonFilter(active ? null : { type: "seenVia", value: tm.matchEmail, label: tm.name })}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition text-left ${active ? "border-primary bg-primary-soft" : "border-border bg-bg-elev hover:border-primary/40"}`}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition text-left ${active ? "border-primary bg-primary-soft" : `border-border ${ACCENT_WASHES[i % ACCENT_WASHES.length]} hover:border-primary/40`}`}
                   >
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${tm.role === "ba" ? "bg-primary-soft" : "bg-warning-soft"}`}>
                       <span className={`font-bold text-[10px] ${tm.role === "ba" ? "text-primary" : "text-warning"}`}>{tm.name.slice(0, 2).toUpperCase()}</span>
@@ -634,14 +631,14 @@ export default function EmailList({
             </div>
           )}
           {clientStats.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {clientStats.map((cs) => {
+            <div className="grid grid-cols-2 gap-3 stagger">
+              {clientStats.map((cs, i) => {
                 const active = personFilter?.type === "fromEmail" && personFilter.value.toLowerCase() === cs.email.toLowerCase();
                 return (
                   <button
                     key={cs.id}
                     onClick={() => setPersonFilter(active ? null : { type: "fromEmail", value: cs.email, label: cs.label || cs.email })}
-                    className={`bg-bg-elev border rounded-xl p-4 flex items-center gap-3 text-left transition ${active ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40"}`}
+                    className={`border rounded-xl p-4 flex items-center gap-3 text-left transition ${active ? "border-primary bg-primary-soft" : `border-border ${ACCENT_WASHES[i % ACCENT_WASHES.length]} hover:border-primary/40`}`}
                   >
                     <div className="w-9 h-9 rounded-lg bg-primary-soft flex items-center justify-center flex-shrink-0">
                       <span className="text-primary font-bold text-xs">{(cs.label || cs.email).slice(0, 2).toUpperCase()}</span>

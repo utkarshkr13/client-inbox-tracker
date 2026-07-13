@@ -2,6 +2,9 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { StatCard } from "@/components/ui/card";
+import { CountUp } from "@/components/ui/count-up";
+import { Mail, Clock, AlertOctagon, Flame, CalendarClock } from "lucide-react";
 
 export default async function DigestPage() {
   const session = await getSession();
@@ -70,31 +73,25 @@ export default async function DigestPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="anim-fade-up">
         <Link href="/dashboard" className="text-sm text-fg-subtle hover:text-fg-muted">← Dashboard</Link>
-        <h1 className="text-2xl font-bold text-fg mt-1">Weekly Digest</h1>
+        <p className="text-[11px] font-semibold tracking-widest text-fg-subtle uppercase mt-1 mb-1">Digest</p>
+        <h1 className="text-2xl font-bold text-fg">Weekly Digest</h1>
         <p className="text-sm text-fg-subtle mt-0.5">{today}</p>
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {[
-          { label: "New this week", value: newEmails, cls: "bg-bg-elev border-border text-fg" },
-          { label: "Still pending", value: pendingTotal, cls: "bg-warning-soft border-warning/20 text-warning" },
-          { label: "Escalated", value: escalatedTotal, cls: "bg-danger-soft border-danger/20 text-danger" },
-          { label: "L2 SLA breach", value: l2SlaBreach.length, cls: l2SlaBreach.length > 0 ? "bg-danger-soft border-danger/25 text-danger" : "bg-bg-elev border-border text-fg-subtle" },
-          { label: "Follow-ups due", value: followUpsDueTotal, cls: "bg-warning-soft border-warning/20 text-warning" },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className={`border rounded-xl p-4 text-center ${cls}`}>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-xs text-fg-subtle mt-1">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 stagger">
+        <StatCard label="New this week" value={<CountUp value={newEmails} />} accent="default" icon={<Mail className="w-3.5 h-3.5" />} />
+        <StatCard label="Still pending" value={<CountUp value={pendingTotal} />} accent="warning" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatCard label="Escalated" value={<CountUp value={escalatedTotal} />} accent="danger" icon={<AlertOctagon className="w-3.5 h-3.5" />} />
+        <StatCard label="L2 SLA breach" value={<CountUp value={l2SlaBreach.length} />} accent={l2SlaBreach.length > 0 ? "danger" : "default"} icon={<Flame className="w-3.5 h-3.5" />} />
+        <StatCard label="Follow-ups due" value={<CountUp value={followUpsDueTotal} />} accent="warning" icon={<CalendarClock className="w-3.5 h-3.5" />} />
       </div>
 
       {/* L2 SLA breach — shown above escalations, these need BA action NOW */}
       {l2SlaBreach.length > 0 && (
-        <div className="bg-danger-soft border-2 border-danger/40 rounded-xl p-5">
+        <div className="bg-danger-soft border-2 border-danger/40 rounded-xl p-5 anim-fade-up">
           <h2 className="text-sm font-semibold text-danger mb-1">🔴 L2 SLA Breach — BA Action Required</h2>
           <p className="text-xs text-danger mb-3">
             These emails were routed to L2 but L2 has not responded within the SLA window. BA must step in.
@@ -125,7 +122,7 @@ export default async function DigestPage() {
 
       {/* Escalated emails — most urgent */}
       {escalated.length > 0 && (
-        <div className="bg-danger-soft border border-danger/25 rounded-xl p-5">
+        <div className="bg-danger-soft border border-danger/25 rounded-xl p-5 anim-fade-up">
           <h2 className="text-sm font-semibold text-danger mb-3">🔺 Escalated — Needs Your Attention</h2>
           <div className="space-y-2">
             {escalated.map((e) => (
@@ -147,7 +144,7 @@ export default async function DigestPage() {
 
       {/* Follow-ups due */}
       {followUpsDue.length > 0 && (
-        <div className="bg-warning-soft border border-warning/25 rounded-xl p-5">
+        <div className="bg-warning-soft border border-warning/25 rounded-xl p-5 anim-fade-up">
           <h2 className="text-sm font-semibold text-warning mb-3">⏰ Follow-ups Due</h2>
           <div className="space-y-2">
             {followUpsDue.map((e) => (
@@ -168,7 +165,7 @@ export default async function DigestPage() {
 
       {/* Pending queue */}
       {pending.length > 0 && (
-        <div className="bg-bg-elev border border-border rounded-xl p-5">
+        <div className="bg-bg-elev border border-border rounded-xl p-5 anim-fade-up">
           <h2 className="text-sm font-semibold text-fg mb-3">Pending Queue ({pendingTotal > pending.length ? `${pending.length} of ${pendingTotal}` : pending.length})</h2>
           <div className="space-y-1.5">
             {pending.map((e) => (
@@ -188,7 +185,7 @@ export default async function DigestPage() {
       )}
 
       {/* Projects overview */}
-      <div className="bg-bg-elev border border-border rounded-xl p-5">
+      <div className="bg-bg-elev border border-border rounded-xl p-5 anim-fade-up">
         <h2 className="text-sm font-semibold text-fg mb-3">Projects Overview</h2>
         <div className="grid sm:grid-cols-2 gap-2">
           {projects.map((p) => (
