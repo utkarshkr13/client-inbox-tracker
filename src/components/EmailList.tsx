@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { StatCard } from "@/components/ui/card";
 import { CountUp } from "@/components/ui/count-up";
 import { Mail, Clock, CheckCircle2, XCircle, AlertOctagon, Users } from "lucide-react";
+import { ACCENT_WASHES } from "@/components/ProjectCard";
 
 type Tag = { id: string; name: string; color: string };
 type Note = { id: string; content: string; createdAt: string | Date; userId: string };
@@ -606,14 +607,14 @@ export default function EmailList({
       {(teamStats.length > 0 || clientStats.length > 0) && (
         <div className="space-y-2">
           {teamStats.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {teamStats.map((tm) => {
+            <div className="flex flex-wrap gap-2 stagger">
+              {teamStats.map((tm, i) => {
                 const active = personFilter?.type === "seenVia" && personFilter.value.toLowerCase() === tm.matchEmail.toLowerCase();
                 return (
                   <button
                     key={tm.id}
                     onClick={() => setPersonFilter(active ? null : { type: "seenVia", value: tm.matchEmail, label: tm.name })}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition text-left ${active ? "border-primary bg-primary-soft" : "border-border bg-bg-elev hover:border-primary/40"}`}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition text-left ${active ? "border-primary bg-primary-soft" : `border-border ${ACCENT_WASHES[i % ACCENT_WASHES.length]} hover:border-primary/40`}`}
                   >
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${tm.role === "ba" ? "bg-primary-soft" : "bg-warning-soft"}`}>
                       <span className={`font-bold text-[10px] ${tm.role === "ba" ? "text-primary" : "text-warning"}`}>{tm.name.slice(0, 2).toUpperCase()}</span>
@@ -630,14 +631,14 @@ export default function EmailList({
             </div>
           )}
           {clientStats.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {clientStats.map((cs) => {
+            <div className="grid grid-cols-2 gap-3 stagger">
+              {clientStats.map((cs, i) => {
                 const active = personFilter?.type === "fromEmail" && personFilter.value.toLowerCase() === cs.email.toLowerCase();
                 return (
                   <button
                     key={cs.id}
                     onClick={() => setPersonFilter(active ? null : { type: "fromEmail", value: cs.email, label: cs.label || cs.email })}
-                    className={`bg-bg-elev border rounded-xl p-4 flex items-center gap-3 text-left transition ${active ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40"}`}
+                    className={`border rounded-xl p-4 flex items-center gap-3 text-left transition ${active ? "border-primary bg-primary-soft" : `border-border ${ACCENT_WASHES[i % ACCENT_WASHES.length]} hover:border-primary/40`}`}
                   >
                     <div className="w-9 h-9 rounded-lg bg-primary-soft flex items-center justify-center flex-shrink-0">
                       <span className="text-primary font-bold text-xs">{(cs.label || cs.email).slice(0, 2).toUpperCase()}</span>
