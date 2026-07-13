@@ -48,7 +48,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             Settings
           </Link>
           {gmailToken && (
-            <SyncButton projectId={id} clientEmails={project.clientEmails.map((e: { email: string }) => e.email)} />
+            <SyncButton
+              projectId={id}
+              clientEmails={project.clientEmails.map((e: { email: string }) => e.email)}
+              lastSyncedAt={project.lastSyncedAt ? project.lastSyncedAt.toISOString() : null}
+            />
           )}
         </div>
       </div>

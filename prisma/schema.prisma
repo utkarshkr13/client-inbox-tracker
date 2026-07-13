@@ -8,13 +8,17 @@ datasource db {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  l2Email   String?  // Email address of the L2 support agent for this project
-  baEmail   String?  // BA's Gmail address (auto-filled on connect, can override)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  l2Email       String?   // Email address of the L2 support agent for this project
+  baEmail       String?   // BA's Gmail address (auto-filled on connect, can override)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastSyncedAt  DateTime? // Set after each successful Gmail sync; drives incremental
+                          // "after:" fetching so re-syncs only pull new mail instead
+                          // of re-scanning full history, and powers the "last synced"
+                          // indicator in the UI. Null until the first successful sync.
 
   clientEmails   ClientEmail[]
   emailStatuses  EmailStatus[]
