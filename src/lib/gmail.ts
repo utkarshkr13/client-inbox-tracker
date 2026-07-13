@@ -128,26 +128,57 @@ function hasRealAttachments(payload: any): boolean {
   return false;
 }
 
+// Hard ceiling on how many messages a single sync pass will ever fetch for
+// one sender, across all pages. This only matters for a project's very
+// first sync (no `sinceDate` yet, so the query has no `after:` filter and
+// could otherwise walk a sender's entire multi-year history in one pass).
+// Once `lastSyncedAt` is set, subsequent syncs are `after:`-scoped and will
+// almost never come close to this.
+const MAX_MESSAGES_PER_SENDER = 500;
+const PAGE_SIZE = 100;
+
 /**
  * Fetch emails from a given sender using an already-authenticated client.
  * Used for both the primary BA mailbox and any connected team-member mailbox,
  * so the same fetch/parse logic covers every inbox we ingest from.
+ *
+ * Paginates through Gmail's `messages.list` (which previously silently
+ * capped every sync at a single page of 50 results with no way to reach
+ * anything past it) and, when `sinceDate` is provided, scopes the query to
+ * `after:<epoch seconds>` so a re-sync only asks Gmail for mail newer than
+ * the last successful sync instead of re-competing against a sender's full
+ * historical volume for a fixed-size results window — which is what let
+ * genuinely new mail get crowded out once a sender had more history than
+ * the old single-page cap.
  */
 export async function fetchEmailsFromSenderWithClient(
   auth: InstanceType<typeof google.auth.OAuth2>,
   fromEmail: string,
-  maxResults = 50
+  sinceDate?: Date | null
 ) {
   const gmail = google.gmail({ version: "v1", auth });
-  const query = `from:${fromEmail}`;
+  // Small backward buffer (5 min) on the `after:` boundary so a message that
+  // arrived in the final moments of the previous sync window — and so may
+  // not have been captured yet at that instant — still gets picked up on
+  // the next pass. The upsert this feeds into is keyed on gmailMessageId,
+  // so re-fetching an already-stored message here is a harmless no-op.
+  const afterClause = sinceDate
+    ? ` after:${Math.floor(sinceDate.getTime() / 1000) - 300}`
+    : "";
+  const query = `from:${fromEmail}${afterClause}`;
 
-  const listRes = await gmail.users.messages.list({
-    userId: "me",
-    q: query,
-    maxResults,
-  });
-
-  const messages = listRes.data.messages ?? [];
+  const messages: { id?: string | null; threadId?: string | null }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const listRes = await gmail.users.messages.list({
+      userId: "me",
+      q: query,
+      maxResults: PAGE_SIZE,
+      pageToken,
+    });
+    messages.push(...(listRes.data.messages ?? []));
+    pageToken = listRes.data.nextPageToken ?? undefined;
+  } while (pageToken && messages.length < MAX_MESSAGES_PER_SENDER);
 
   const detailed = await Promise.all(
     messages.map(async (msg) => {
@@ -208,9 +239,9 @@ export async function fetchEmailsFromSenderWithClient(
 export async function fetchEmailsFromSender(
   userId: string,
   fromEmail: string,
-  maxResults = 50
+  sinceDate?: Date | null
 ) {
   const auth = await getAuthedClient(userId);
   if (!auth) throw new Error("Gmail not connected");
-  return fetchEmailsFromSenderWithClient(auth, fromEmail, maxResults);
+  return fetchEmailsFromSenderWithClient(auth, fromEmail, sinceDate);
 }

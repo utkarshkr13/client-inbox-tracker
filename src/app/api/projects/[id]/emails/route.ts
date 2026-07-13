@@ -116,7 +116,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (!account.auth) continue;
     const results = await Promise.allSettled(
       project.clientEmails.map((ce: { email: string }) =>
-        fetchEmailsFromSenderWithClient(account.auth!, ce.email)
+        fetchEmailsFromSenderWithClient(account.auth!, ce.email, project.lastSyncedAt)
       )
     );
     for (const result of results) {
@@ -205,7 +205,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: { notes: true, emailTags: { include: { tag: true } } },
   });
 
-  return NextResponse.json({ synced: fetched.length, emails: statuses });
+  // Record this as the sync boundary so the *next* sync only asks Gmail for
+  // mail newer than now, rather than re-scanning full history again.
+  const syncedAt = new Date();
+  await prisma.project.update({ where: { id }, data: { lastSyncedAt: syncedAt } });
+
+  return NextResponse.json({ synced: fetched.length, emails: statuses, lastSyncedAt: syncedAt.toISOString() });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
