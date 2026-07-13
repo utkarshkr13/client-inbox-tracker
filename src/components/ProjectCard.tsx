@@ -18,7 +18,7 @@ type Project = {
 // automatically to light/dark mode. Each entry must be a literal Tailwind
 // class string (not built from template interpolation) so the JIT scanner
 // picks it up.
-const ACCENT_WASHES = [
+export const ACCENT_WASHES = [
   "bg-gradient-to-br from-primary-soft/70 via-bg-elev to-bg-elev",
   "bg-gradient-to-br from-warning-soft/70 via-bg-elev to-bg-elev",
   "bg-gradient-to-br from-danger-soft/55 via-bg-elev to-bg-elev",
